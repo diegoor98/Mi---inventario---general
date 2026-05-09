@@ -3,24 +3,24 @@ import pandas as pd
 import plotly.express as px
 from io import BytesIO
 from datetime import datetime
-import sqlite3
+import sqlite3 
 
-=========================================================
-CONFIG
-=========================================================
+# =========================================================
+# CONFIG
+# ========================================================= 
 
 st.set_page_config(
 page_title="Tulip ERP",
 page_icon="🌷",
 layout="wide"
-)
+) 
 
-=========================================================
-ESTILOS PREMIUM
-=========================================================
+# =========================================================
+# ESTILOS PREMIUM
+# ========================================================= 
 
 st.markdown("""
-<style>
+<style> 
 
 .main{
 background: linear-gradient(
@@ -28,143 +28,144 @@ background: linear-gradient(
 #0E1117 0%,
 #161B22 100%
 );
-}
+} 
 
 h1{
 color:white;
 font-weight:800;
-}
+} 
 
 h2,h3,h4{
 color:#F8FAFC;
-}
+} 
 
-data-testid="stMetric"{
+[data-testid="stMetric"]{
 background: linear-gradient(
 145deg,
 #1E293B,
 #111827
-);
+); 
 
-border:1px solid #334155;
+border:1px solid #334155; 
 
-padding:20px;
+padding:20px; 
 
-border-radius:18px;
+border-radius:18px; 
 
 box-shadow:
-0 4px 20px rgba(0,0,0,0.35);
+0 4px 20px rgba(0,0,0,0.35); 
 
 transition:0.3s;
-}
+} 
 
+[data-testid="stMetric"]:hover {
 transform:translateY(-3px);
 border:1px solid #FF4B91;
-}
+} 
 
-div.stButton > button{
+div.stButton > button{ 
 
 background: linear-gradient(
 90deg,
 #FF4B91,
 #9333EA
-);
+); 
 
-color:white;
+color:white; 
 
-border:none;
+border:none; 
 
-border-radius:12px;
+border-radius:12px; 
 
-padding:10px 18px;
+padding:10px 18px; 
 
 font-weight:700;
-}
+} 
 
-div.stButton > button:hover{
+div.stButton > button:hover{ 
 
 background: linear-gradient(
 90deg,
 #7C3AED,
 #EC4899
-);
+); 
 
 transform:scale(1.03);
-}
+} 
 
 .stTextInput input,
 .stNumberInput input,
-.stDateInput input{
+.stDateInput input{ 
 
 background:#111827;
 color:white;
 border-radius:10px;
 border:1px solid #334155;
-}
+} 
 
-.stSelectbox div[data-baseweb="select"]{
+.stSelectbox div[data-baseweb="select"]{ 
 
 background:#111827;
 border-radius:10px;
-}
+} 
 
-button[data-baseweb="tab"]{
+button[data-baseweb="tab"]{ 
 
 background:#111827;
-color:#CBD5E1;
+color:#CBD5E1; 
 
-border-radius:12px;
+border-radius:12px; 
 
-margin-right:5px;
+margin-right:5px; 
 
 padding:10px 20px;
-}
+} 
 
-button[aria-selected="true"]{
+button[aria-selected="true"]{ 
 
 background: linear-gradient(
 90deg,
 #EC4899,
 #8B5CF6
-) !important;
+) !important; 
 
 color:white !important;
-}
+} 
 
 [data-testid="stDataFrame"]{
 border-radius:15px;
 overflow:hidden;
-}
+} 
 
 .stSuccess{
 border-radius:12px;
-}
+} 
 
 .stError{
 border-radius:12px;
-}
+} 
 
 .stWarning{
 border-radius:12px;
-}
+} 
 
 </style>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True) 
 
-=========================================================
-DATABASE
-=========================================================
+# =========================================================
+# DATABASE
+# ========================================================= 
 
 conn = sqlite3.connect(
 "tulip_erp.db",
 check_same_thread=False
-)
+) 
 
-cursor = conn.cursor()
+cursor = conn.cursor() 
 
-=========================================================
-TABLAS
-=========================================================
+# =========================================================
+# TABLAS
+# ========================================================= 
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
@@ -175,7 +176,7 @@ stock INTEGER,
 costo REAL,
 venta REAL
 )
-""")
+""") 
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS ventas(
@@ -187,7 +188,7 @@ costo_ref REAL,
 venta_ref REAL,
 ganancia REAL
 )
-""")
+""") 
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS gastos(
@@ -196,34 +197,34 @@ fecha TEXT,
 concepto TEXT,
 monto REAL
 )
-""")
+""") 
 
-conn.commit()
+conn.commit() 
 
-=========================================================
-FUNCIONES
-=========================================================
+# =========================================================
+# FUNCIONES
+# ========================================================= 
 
-def cargar():
+def cargar(): 
 
-return (
-pd.read_sql(
-"SELECT * FROM inventario",
-conn
-),
+    return (
+    pd.read_sql(
+    "SELECT * FROM inventario",
+    conn
+    ), 
 
-pd.read_sql(
-"SELECT * FROM ventas",
-conn
-),
+    pd.read_sql(
+    "SELECT * FROM ventas",
+    conn
+    ), 
 
-pd.read_sql(
-"SELECT * FROM gastos",
-conn
-)
-)
+    pd.read_sql(
+    "SELECT * FROM gastos",
+    conn
+    )
+    ) 
 
-=========================================================
+# ========================================================= 
 
 def guardar_producto(
 producto,
@@ -231,209 +232,210 @@ categoria,
 stock,
 costo,
 venta
-):
+): 
 
-cursor.execute(
-"SELECT * FROM inventario WHERE producto=?",
-(producto,)
-)
+    cursor.execute(
+    "SELECT * FROM inventario WHERE producto=?",
+    (producto,)
+    ) 
 
-existe = cursor.fetchone()
+    existe = cursor.fetchone() 
 
-if existe:
+    if existe: 
 
-nuevo_stock = existe[3] + stock
+        nuevo_stock = existe[3] + stock 
 
-cursor.execute("""
-UPDATE inventario
-SET categoria=?,
-stock=?,
-costo=?,
-venta=?
-WHERE producto=?
-""",(
-categoria,
-nuevo_stock,
-costo,
-venta,
-producto
-))
+        cursor.execute("""
+        UPDATE inventario
+        SET categoria=?,
+        stock=?,
+        costo=?,
+        venta=?
+        WHERE producto=?
+        """,(
+        categoria,
+        nuevo_stock,
+        costo,
+        venta,
+        producto
+        )) 
 
-else:
+    else: 
 
-cursor.execute("""
-INSERT INTO inventario
-VALUES(NULL,?,?,?,?,?)
-""",(
-producto,
-categoria,
-stock,
-costo,
-venta
-))
+        cursor.execute("""
+        INSERT INTO inventario
+        VALUES(NULL,?,?,?,?,?)
+        """,(
+        producto,
+        categoria,
+        stock,
+        costo,
+        venta
+        )) 
 
-conn.commit()
+    conn.commit() 
 
-=========================================================
+# ========================================================= 
 
 def registrar_venta(
 fecha,
 producto,
 cantidad
-):
+): 
 
-cursor.execute(
-"SELECT * FROM inventario WHERE producto=?",
-(producto,)
-)
+    cursor.execute(
+    "SELECT * FROM inventario WHERE producto=?",
+    (producto,)
+    ) 
 
-d = cursor.fetchone()
+    d = cursor.fetchone() 
 
-if not d:
-return False, "Producto no existe"
+    if not d:
+        return False, "Producto no existe" 
 
-,,_,stock,costo,venta = d
+    # CORREGIDO: Desempaquetado explícito de los 6 campos de la tabla inventario
+    id_p, prod_p, cat_p, stock, costo, venta = d 
 
-if cantidad > stock:
-return False, f"Stock insuficiente ({stock})"
+    if cantidad > stock:
+        return False, f"Stock insuficiente ({stock})" 
 
-nuevo_stock = stock - cantidad
+    nuevo_stock = stock - cantidad 
 
-ganancia = cantidad * (
-venta - costo
-)
+    ganancia = cantidad * (
+    venta - costo
+    ) 
 
-cursor.execute("""
-UPDATE inventario
-SET stock=?
-WHERE producto=?
-""",(
-nuevo_stock,
-producto
-))
+    cursor.execute("""
+    UPDATE inventario
+    SET stock=?
+    WHERE producto=?
+    """,(
+    nuevo_stock,
+    producto
+    )) 
 
-cursor.execute("""
-INSERT INTO ventas
-VALUES(NULL,?,?,?,?,?,?)
-""",(
-fecha,
-producto,
-cantidad,
-costo,
-venta,
-ganancia
-))
+    cursor.execute("""
+    INSERT INTO ventas
+    VALUES(NULL,?,?,?,?,?,?)
+    """,(
+    fecha,
+    producto,
+    cantidad,
+    costo,
+    venta,
+    ganancia
+    )) 
 
-conn.commit()
+    conn.commit() 
 
-return True, "Venta registrada"
+    return True, "Venta registrada" 
 
-=========================================================
+# ========================================================= 
 
 def registrar_gasto(
 fecha,
 concepto,
 monto
-):
+): 
 
-cursor.execute("""
-INSERT INTO gastos
-VALUES(NULL,?,?,?)
-""",(
-fecha,
-concepto,
-monto
-))
+    cursor.execute("""
+    INSERT INTO gastos
+    VALUES(NULL,?,?,?)
+    """,(
+    fecha,
+    concepto,
+    monto
+    )) 
 
-conn.commit()
+    conn.commit() 
 
-=========================================================
+# ========================================================= 
 
-def eliminar_producto(producto):
+def eliminar_producto(producto): 
 
-cursor.execute(
-"DELETE FROM inventario WHERE producto=?",
-(producto,)
-)
+    cursor.execute(
+    "DELETE FROM inventario WHERE producto=?",
+    (producto,)
+    ) 
 
-conn.commit()
+    conn.commit() 
 
-=========================================================
+# ========================================================= 
 
-def eliminar_venta(id_venta):
+def eliminar_venta(id_venta): 
 
-cursor.execute("""
-SELECT producto,cantidad
-FROM ventas
-WHERE id=?
-""",(id_venta,))
+    cursor.execute("""
+    SELECT producto,cantidad
+    FROM ventas
+    WHERE id=?
+    """,(id_venta,)) 
 
-venta = cursor.fetchone()
+    venta = cursor.fetchone() 
 
-if venta:
+    if venta: 
 
-producto,cantidad = venta
+        producto,cantidad = venta 
 
-cursor.execute("""
-UPDATE inventario
-SET stock = stock + ?
-WHERE producto=?
-""",(cantidad,producto))
+        cursor.execute("""
+        UPDATE inventario
+        SET stock = stock + ?
+        WHERE producto=?
+        """,(cantidad,producto)) 
 
-cursor.execute("""
-DELETE FROM ventas
-WHERE id=?
-""",(id_venta,))
+        cursor.execute("""
+        DELETE FROM ventas
+        WHERE id=?
+        """,(id_venta,)) 
 
-conn.commit()
+        conn.commit() 
 
-=========================================================
+# ========================================================= 
 
-def eliminar_gasto(id_gasto):
+def eliminar_gasto(id_gasto): 
 
-cursor.execute("""
-DELETE FROM gastos
-WHERE id=?
-""",(id_gasto,))
+    cursor.execute("""
+    DELETE FROM gastos
+    WHERE id=?
+    """,(id_gasto,)) 
 
-conn.commit()
+    conn.commit() 
 
-=========================================================
+# ========================================================= 
 
-def deshacer_ultima_venta():
+def deshacer_ultima_venta(): 
 
-cursor.execute("""
-SELECT id
-FROM ventas
-ORDER BY id DESC
-LIMIT 1
-""")
+    cursor.execute("""
+    SELECT id
+    FROM ventas
+    ORDER BY id DESC
+    LIMIT 1
+    """) 
 
-ultima = cursor.fetchone()
+    ultima = cursor.fetchone() 
 
-if ultima:
+    if ultima: 
 
-eliminar_venta(ultima[0])
+        eliminar_venta(ultima[0]) 
 
-=========================================================
-DATOS
-=========================================================
+# =========================================================
+# DATOS
+# ========================================================= 
 
-inv, ven, gas = cargar()
+inv, ven, gas = cargar() 
 
-=========================================================
-TITULO
-=========================================================
+# =========================================================
+# TITULO
+# ========================================================= 
 
 st.markdown("""
 <h1 style='text-align:center;'>
 🌷 Tulip ERP
 </h1>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True) 
 
-=========================================================
-TABS
-=========================================================
+# =========================================================
+# TABS
+# ========================================================= 
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 "📦 Inventario",
@@ -442,718 +444,722 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 "📑 Balance",
 "📈 Dashboard",
 "💾 Exportar"
-])
+]) 
 
-=========================================================
-INVENTARIO
-=========================================================
+# =========================================================
+# INVENTARIO
+# ========================================================= 
 
-with tab1:
+with tab1: 
 
-st.subheader("📦 Inventario")
+    st.subheader("📦 Inventario") 
 
-with st.form("inventario_form"):
+    with st.form("inventario_form"): 
 
-modo = st.radio(
-"Modo",
-["Existente","Nuevo"],
-horizontal=True
-)
+        modo = st.radio(
+        "Modo",
+        ["Existente","Nuevo"],
+        horizontal=True
+        ) 
 
-producto = ""
+        producto_final = "" 
 
-categoria0 = ""
-costo0 = 0.0
-venta0 = 0.0
+        categoria0 = ""
+        costo0 = 0.0
+        venta0 = 0.0 
 
-if modo == "Existente" and not inv.empty:
+        if modo == "Existente" and not inv.empty: 
 
-producto = st.selectbox(
-"Producto",
-inv["producto"]
-)
+            producto_final = st.selectbox(
+            "Producto",
+            inv["producto"]
+            ) 
 
-fila = inv[
-inv["producto"] == producto
-].iloc[0]
+            fila = inv[
+            inv["producto"] == producto_final
+            ].iloc[0] 
 
-categoria0 = fila["categoria"]
-costo0 = fila["costo"]
-venta0 = fila["venta"]
+            categoria0 = fila["categoria"]
+            costo0 = fila["costo"]
+            venta0 = fila["venta"] 
 
-else:
+        else: 
 
-producto = st.text_input(
-"Nuevo Producto"
-)
+            producto_final = st.text_input(
+            "Nuevo Producto"
+            ) 
 
-categoria = st.text_input(
-"Categoria",
-value=categoria0
-)
+        categoria = st.text_input(
+        "Categoria",
+        value=categoria0
+        ) 
 
-c1,c2,c3 = st.columns(3)
+        c1,c2,c3 = st.columns(3) 
 
-with c1:
-stock = st.number_input(
-"Stock",
-min_value=0
-)
+        with c1:
+            stock = st.number_input(
+            "Stock",
+            min_value=0
+            ) 
 
-with c2:
-costo = st.number_input(
-"Costo",
-min_value=0.0,
-value=float(costo0)
-)
+        with c2:
+            costo = st.number_input(
+            "Costo",
+            min_value=0.0,
+            value=float(costo0)
+            ) 
 
-with c3:
-venta = st.number_input(
-"Venta",
-min_value=0.0,
-value=float(venta0)
-)
+        with c3:
+            venta = st.number_input(
+            "Venta",
+            min_value=0.0,
+            value=float(venta0)
+            ) 
 
-guardar = st.form_submit_button(
-"Guardar"
-)
+        guardar = st.form_submit_button(
+        "Guardar"
+        ) 
 
-if guardar:
+        if guardar: 
 
-guardar_producto(
-producto.title(),
-categoria,
-stock,
-costo,
-venta
-)
+            guardar_producto(
+            producto_final.title(),
+            categoria,
+            stock,
+            costo,
+            venta
+            ) 
 
-st.success(
-"Producto guardado"
-)
+            st.success(
+            "Producto guardado"
+            ) 
 
-st.rerun()
+            st.rerun() 
 
-st.dataframe(
-inv,
-use_container_width=True
-)
+    st.dataframe(
+    inv,
+    use_container_width=True
+    ) 
 
-st.subheader("🗑 Eliminar Producto")
+    st.subheader("🗑 Eliminar Producto") 
 
-if not inv.empty:
+    if not inv.empty: 
 
-producto_eliminar = st.selectbox(
-"Producto",
-inv["producto"],
-key="eliminar"
-)
+        producto_eliminar = st.selectbox(
+        "Producto",
+        inv["producto"],
+        key="eliminar"
+        ) 
 
-confirmar = st.checkbox(
-"Estoy seguro de eliminar"
-)
+        confirmar = st.checkbox(
+        "Estoy seguro de eliminar"
+        ) 
 
-c1,c2 = st.columns([1,5])
+        c1,c2 = st.columns([1,5]) 
 
-with c1:
+        with c1: 
 
-if st.button("Eliminar"):
+            if st.button("Eliminar"): 
 
-if confirmar:
+                if confirmar: 
 
-eliminar_producto(
-producto_eliminar
-)
+                    eliminar_producto(
+                    producto_eliminar
+                    ) 
 
-st.success(
-"Producto eliminado"
-)
+                    st.success(
+                    "Producto eliminado"
+                    ) 
 
-st.rerun()
+                    st.rerun() 
 
-else:
+                else: 
 
-st.warning(
-"Debes confirmar"
-)
+                    st.warning(
+                    "Debes confirmar"
+                    ) 
 
-=========================================================
-VENTAS
-=========================================================
+# =========================================================
+# VENTAS
+# ========================================================= 
 
-with tab2:
+with tab2: 
 
-st.subheader("🛒 Ventas")
+    st.subheader("🛒 Ventas") 
 
-if not inv.empty:
+    if not inv.empty: 
 
-with st.form("ventas_form"):
+        with st.form("ventas_form"): 
 
-producto = st.selectbox(
-"Producto",
-inv["producto"]
-)
+            producto_v = st.selectbox(
+            "Producto",
+            inv["producto"]
+            ) 
 
-stock_actual = int(
-inv[
-inv["producto"] == producto
- ]["stock"].values[0]
-)
+            stock_actual = int(
+            inv[
+            inv["producto"] == producto_v
+            ]["stock"].values[0]
+            ) 
 
-st.info(
-f"Stock disponible: {stock_actual}"
-)
+            st.info(
+            f"Stock disponible: {stock_actual}"
+            ) 
 
-cantidad = st.number_input(
-"Cantidad",
-min_value=1
-)
+            cantidad = st.number_input(
+            "Cantidad",
+            min_value=1
+            ) 
 
-fecha = st.date_input(
-"Fecha",
-datetime.now()
-)
+            fecha = st.date_input(
+            "Fecha",
+            datetime.now()
+            ) 
 
-vender = st.form_submit_button(
-"Vender"
-)
+            vender = st.form_submit_button(
+            "Vender"
+            ) 
 
-if vender:
+            if vender: 
 
-ok, msg = registrar_venta(
-str(fecha),
-producto,
-cantidad
-)
+                ok, msg = registrar_venta(
+                str(fecha),
+                producto_v,
+                cantidad
+                ) 
 
-if ok:
+                if ok: 
 
-st.success(msg)
-st.rerun()
+                    st.success(msg)
+                    st.rerun() 
 
-else:
+                else: 
 
-st.error(msg)
+                    st.error(msg) 
 
-st.divider()
+    st.divider() 
 
-st.subheader("↩ Retroceder Venta")
+    st.subheader("↩ Retroceder Venta") 
 
-c1,c2 = st.columns([1,5])
+    c1,c2 = st.columns([1,5]) 
 
-with c1:
+    with c1: 
 
-if st.button("Deshacer"):
+        if st.button("Deshacer"): 
 
-deshacer_ultima_venta()
+            deshacer_ultima_venta() 
 
-st.success(
-"Última venta eliminada"
-)
+            st.success(
+            "Última venta eliminada"
+            ) 
 
-st.rerun()
+            st.rerun() 
 
-st.subheader("🗑 Eliminar Venta")
+    st.subheader("🗑 Eliminar Venta") 
 
-if not ven.empty:
+    if not ven.empty: 
 
-id_venta = st.selectbox(
-"ID Venta",
-ven["id"]
-)
+        id_venta = st.selectbox(
+        "ID Venta",
+        ven["id"]
+        ) 
 
-confirmar = st.checkbox(
-"Confirmar eliminación venta"
-)
+        confirmar_v = st.checkbox(
+        "Confirmar eliminación venta"
+        ) 
 
-c1,c2 = st.columns([1,5])
+        c1,c2 = st.columns([1,5]) 
 
-with c1:
+        with c1: 
 
-if st.button("Eliminar Venta"):
+            if st.button("Eliminar Venta"): 
 
-if confirmar:
+                if confirmar_v: 
 
-eliminar_venta(id_venta)
+                    eliminar_venta(id_venta) 
 
-st.success(
-"Venta eliminada"
-)
+                    st.success(
+                    "Venta eliminada"
+                    ) 
 
-st.rerun()
+                    st.rerun() 
 
-else:
+                else: 
 
-st.warning(
-"Debes confirmar"
-)
+                    st.warning(
+                    "Debes confirmar"
+                    ) 
 
-st.divider()
+    st.divider() 
 
-st.dataframe(
-ven,
-use_container_width=True
-)
+    st.dataframe(
+    ven,
+    use_container_width=True
+    ) 
 
-=========================================================
-GASTOS
-=========================================================
+# =========================================================
+# GASTOS
+# ========================================================= 
 
-with tab3:
+with tab3: 
 
-st.subheader("💸 Gastos")
+    st.subheader("💸 Gastos") 
 
-with st.form("gastos_form"):
+    with st.form("gastos_form"): 
 
-concepto = st.text_input(
-"Concepto"
-)
+        concepto = st.text_input(
+        "Concepto"
+        ) 
 
-monto = st.number_input(
-"Monto",
-min_value=0.0
-)
+        monto = st.number_input(
+        "Monto",
+        min_value=0.0
+        ) 
 
-fecha = st.date_input(
-"Fecha",
-datetime.now()
-)
+        fecha_g = st.date_input(
+        "Fecha",
+        datetime.now(),
+        key="fecha_gasto"
+        ) 
 
-guardar_gasto = st.form_submit_button(
-"Guardar"
-)
+        guardar_gasto = st.form_submit_button(
+        "Guardar"
+        ) 
 
-if guardar_gasto:
+        if guardar_gasto: 
 
-registrar_gasto(
-str(fecha),
-concepto,
-monto
-)
+            registrar_gasto(
+            str(fecha_g),
+            concepto,
+            monto
+            ) 
 
-st.success(
-"Gasto registrado"
-)
+            st.success(
+            "Gasto registrado"
+            ) 
 
-st.rerun()
+            st.rerun() 
 
-st.divider()
+    st.divider() 
 
-st.subheader("🗑 Eliminar Gasto")
+    st.subheader("🗑 Eliminar Gasto") 
 
-if not gas.empty:
+    if not gas.empty: 
 
-id_gasto = st.selectbox(
-"ID Gasto",
-gas["id"]
-)
+        id_gasto = st.selectbox(
+        "ID Gasto",
+        gas["id"]
+        ) 
 
-confirmar_gasto = st.checkbox(
-"Confirmar eliminación gasto"
-)
+        confirmar_gasto = st.checkbox(
+        "Confirmar eliminación gasto"
+        ) 
 
-c1,c2 = st.columns([1,5])
+        c1,c2 = st.columns([1,5]) 
 
-with c1:
+        with c1: 
 
-if st.button("Eliminar Gasto"):
+            if st.button("Eliminar Gasto"): 
 
-if confirmar_gasto:
+                if confirmar_gasto: 
 
-eliminar_gasto(id_gasto)
+                    eliminar_gasto(id_gasto) 
 
-st.success(
-"Gasto eliminado"
-)
+                    st.success(
+                    "Gasto eliminado"
+                    ) 
 
-st.rerun()
+                    st.rerun() 
 
-else:
+                else: 
 
-st.warning(
-"Debes confirmar"
-)
+                    st.warning(
+                    "Debes confirmar"
+                    ) 
 
-st.divider()
+    st.divider() 
 
-st.dataframe(
-gas,
-use_container_width=True
-)
+    st.dataframe(
+    gas,
+    use_container_width=True
+    ) 
 
-=========================================================
-BALANCE
-=========================================================
+# =========================================================
+# BALANCE
+# ========================================================= 
 
-with tab4:
+with tab4: 
 
-st.subheader("📑 Balance Financiero")
+    st.subheader("📑 Balance Financiero") 
 
-tipo_balance = st.radio(
-"Ver balance por:",
-["Todo","Mes","Año"],
-horizontal=True
-)
+    tipo_balance = st.radio(
+    "Ver balance por:",
+    ["Todo","Mes","Año"],
+    horizontal=True,
+    key="tipo_bal"
+    ) 
 
-ven_balance = ven.copy()
-gas_balance = gas.copy()
+    ven_balance = ven.copy()
+    gas_balance = gas.copy() 
 
-if not ven_balance.empty:
-ven_balance["fecha"] = pd.to_datetime(
-ven_balance["fecha"]
-)
+    if not ven_balance.empty:
+        ven_balance["fecha"] = pd.to_datetime(
+        ven_balance["fecha"]
+        ) 
 
-if not gas_balance.empty:
-gas_balance["fecha"] = pd.to_datetime(
-gas_balance["fecha"]
-)
+    if not gas_balance.empty:
+        gas_balance["fecha"] = pd.to_datetime(
+        gas_balance["fecha"]
+        ) 
 
-if tipo_balance == "Mes":
+    if tipo_balance == "Mes": 
 
-meses = {
-1:"Enero",
-2:"Febrero",
-3:"Marzo",
-4:"Abril",
-5:"Mayo",
-6:"Junio",
-7:"Julio",
-8:"Agosto",
-9:"Septiembre",
-10:"Octubre",
-11:"Noviembre",
-12:"Diciembre"
-}
+        meses = {
+        1:"Enero",
+        2:"Febrero",
+        3:"Marzo",
+        4:"Abril",
+        5:"Mayo",
+        6:"Junio",
+        7:"Julio",
+        8:"Agosto",
+        9:"Septiembre",
+        10:"Octubre",
+        11:"Noviembre",
+        12:"Diciembre"
+        } 
 
-c1,c2 = st.columns(2)
+        c1,c2 = st.columns(2) 
 
-with c1:
+        with c1: 
 
-mes = st.selectbox(
-"Mes",
-list(meses.keys()),
-format_func=lambda x: meses[x]
-)
+            mes = st.selectbox(
+            "Mes",
+            list(meses.keys()),
+            format_func=lambda x: meses[x]
+            ) 
 
-with c2:
+        with c2: 
 
-anio = st.selectbox(
-"Año",
-sorted(
-ven_balance["fecha"]
-.dt.year.unique()
-) if not ven_balance.empty
-else [datetime.now().year]
-)
+            anio = st.selectbox(
+            "Año",
+            sorted(
+            ven_balance["fecha"]
+            .dt.year.unique()
+            ) if not ven_balance.empty
+            else [datetime.now().year]
+            ) 
 
-if not ven_balance.empty:
+        if not ven_balance.empty: 
 
-ven_balance = ven_balance[
-(ven_balance["fecha"].dt.month == mes) &
-(ven_balance["fecha"].dt.year == anio)
-]
+            ven_balance = ven_balance[
+            (ven_balance["fecha"].dt.month == mes) &
+            (ven_balance["fecha"].dt.year == anio)
+            ] 
 
-if not gas_balance.empty:
+        if not gas_balance.empty: 
 
-gas_balance = gas_balance[
-(gas_balance["fecha"].dt.month == mes) &
-(gas_balance["fecha"].dt.year == anio)
-]
+            gas_balance = gas_balance[
+            (gas_balance["fecha"].dt.month == mes) &
+            (gas_balance["fecha"].dt.year == anio)
+            ] 
 
-elif tipo_balance == "Año":
+    elif tipo_balance == "Año": 
 
-anio = st.selectbox(
-"Año",
-sorted(
-ven_balance["fecha"]
-.dt.year.unique()
-) if not ven_balance.empty
-else [datetime.now().year]
-)
+        anio = st.selectbox(
+        "Año",
+        sorted(
+        ven_balance["fecha"]
+        .dt.year.unique()
+        ) if not ven_balance.empty
+        else [datetime.now().year],
+        key="anio_bal"
+        ) 
 
-if not ven_balance.empty:
+        if not ven_balance.empty: 
 
-ven_balance = ven_balance[
-ven_balance["fecha"].dt.year == anio
-]
+            ven_balance = ven_balance[
+            ven_balance["fecha"].dt.year == anio
+            ] 
 
-if not gas_balance.empty:
+        if not gas_balance.empty: 
 
-gas_balance = gas_balance[
-gas_balance["fecha"].dt.year == anio
-]
+            gas_balance = gas_balance[
+            gas_balance["fecha"].dt.year == anio
+            ] 
 
-ventas_total = (
-ven_balance["venta_ref"].sum()
-if not ven_balance.empty else 0
-)
+    ventas_total = (
+    ven_balance["venta_ref"].sum()
+    if not ven_balance.empty else 0
+    ) 
 
-ganancias = (
-ven_balance["ganancia"].sum()
-if not ven_balance.empty else 0
-)
+    ganancias = (
+    ven_balance["ganancia"].sum()
+    if not ven_balance.empty else 0
+    ) 
 
-gastos_total = (
-gas_balance["monto"].sum()
-if not gas_balance.empty else 0
-)
+    gastos_total = (
+    gas_balance["monto"].sum()
+    if not gas_balance.empty else 0
+    ) 
 
-utilidad = ganancias - gastos_total
+    utilidad = ganancias - gastos_total 
 
-stock_total = (
-inv["stock"].sum()
-if not inv.empty else 0
-)
+    stock_total = (
+    inv["stock"].sum()
+    if not inv.empty else 0
+    ) 
 
-inventario_costo = (
-(inv["stock"] * inv["costo"]).sum()
-if not inv.empty else 0
-)
+    inventario_costo = (
+    (inv["stock"] * inv["costo"]).sum()
+    if not inv.empty else 0
+    ) 
 
-inventario_venta = (
-(inv["stock"] * inv["venta"]).sum()
-if not inv.empty else 0
-)
+    inventario_venta = (
+    (inv["stock"] * inv["venta"]).sum()
+    if not inv.empty else 0
+    ) 
 
-c1,c2,c3,c4 = st.columns(4)
+    c1,c2,c3,c4 = st.columns(4) 
 
-c1.metric(
-"💰 Ventas",
-f"S/ {ventas_total:,.2f}"
-)
+    c1.metric(
+    "💰 Ventas",
+    f"S/ {ventas_total:,.2f}"
+    ) 
 
-c2.metric(
-"📈 Ganancias",
-f"S/ {ganancias:,.2f}"
-)
+    c2.metric(
+    "📈 Ganancias",
+    f"S/ {ganancias:,.2f}"
+    ) 
 
-c3.metric(
-"💸 Gastos",
-f"S/ {gastos_total:,.2f}"
-)
+    c3.metric(
+    "💸 Gastos",
+    f"S/ {gastos_total:,.2f}"
+    ) 
 
-c4.metric(
-"🏦 Utilidad",
-f"S/ {utilidad:,.2f}"
-)
+    c4.metric(
+    "🏦 Utilidad",
+    f"S/ {utilidad:,.2f}"
+    ) 
 
-c5,c6,c7 = st.columns(3)
+    c5,c6,c7 = st.columns(3) 
 
-c5.metric(
-"📦 Stock",
-stock_total
-)
+    c5.metric(
+    "📦 Stock",
+    stock_total
+    ) 
 
-c6.metric(
-"🏭 Inventario Costo",
-f"S/ {inventario_costo:,.2f}"
-)
+    c6.metric(
+    "🏭 Inventario Costo",
+    f"S/ {inventario_costo:,.2f}"
+    ) 
 
-c7.metric(
-"🏪 Inventario Valorizado",
-f"S/ {inventario_venta:,.2f}"
-)
+    c7.metric(
+    "🏪 Inventario Valorizado",
+    f"S/ {inventario_venta:,.2f}"
+    ) 
 
-=========================================================
-DASHBOARD
-=========================================================
+# =========================================================
+# DASHBOARD
+# ========================================================= 
 
-with tab5:
+with tab5: 
 
-st.subheader("📈 Dashboard Ejecutivo")
+    st.subheader("📈 Dashboard Ejecutivo") 
 
-tipo_dashboard = st.radio(
-"Ver dashboard por:",
-["Todo","Mes","Año"],
-horizontal=True
-)
+    tipo_dashboard = st.radio(
+    "Ver dashboard por:",
+    ["Todo","Mes","Año"],
+    horizontal=True,
+    key="tipo_dash"
+    ) 
 
-ven_dash = ven.copy()
+    ven_dash = ven.copy() 
 
-if not ven_dash.empty:
-ven_dash["fecha"] = pd.to_datetime(
-ven_dash["fecha"]
-)
+    if not ven_dash.empty:
+        ven_dash["fecha"] = pd.to_datetime(
+        ven_dash["fecha"]
+        ) 
 
-if tipo_dashboard == "Mes":
+    if tipo_dashboard == "Mes": 
 
-meses = {
-1:"Enero",
-2:"Febrero",
-3:"Marzo",
-4:"Abril",
-5:"Mayo",
-6:"Junio",
-7:"Julio",
-8:"Agosto",
-9:"Septiembre",
-10:"Octubre",
-11:"Noviembre",
-12:"Diciembre"
-}
+        meses = {
+        1:"Enero",
+        2:"Febrero",
+        3:"Marzo",
+        4:"Abril",
+        5:"Mayo",
+        6:"Junio",
+        7:"Julio",
+        8:"Agosto",
+        9:"Septiembre",
+        10:"Octubre",
+        11:"Noviembre",
+        12:"Diciembre"
+        } 
 
-c1,c2 = st.columns(2)
+        c1,c2 = st.columns(2) 
 
-with c1:
+        with c1: 
 
-mes = st.selectbox(
-"Mes Dashboard",
-list(meses.keys()),
-format_func=lambda x: meses[x]
-)
+            mes_d = st.selectbox(
+            "Mes Dashboard",
+            list(meses.keys()),
+            format_func=lambda x: meses[x]
+            ) 
 
-with c2:
+        with c2: 
 
-anio = st.selectbox(
-"Año Dashboard",
-sorted(
-ven_dash["fecha"]
-.dt.year.unique()
-) if not ven_dash.empty
-else [datetime.now().year]
-)
+            anio_d = st.selectbox(
+            "Año Dashboard",
+            sorted(
+            ven_dash["fecha"]
+            .dt.year.unique()
+            ) if not ven_dash.empty
+            else [datetime.now().year]
+            ) 
 
-if not ven_dash.empty:
+        if not ven_dash.empty: 
 
-ven_dash = ven_dash[
-(ven_dash["fecha"].dt.month == mes) &
-(ven_dash["fecha"].dt.year == anio)
-]
+            ven_dash = ven_dash[
+            (ven_dash["fecha"].dt.month == mes_d) &
+            (ven_dash["fecha"].dt.year == anio_d)
+            ] 
 
-elif tipo_dashboard == "Año":
+    elif tipo_dashboard == "Año": 
 
-anio = st.selectbox(
-"Año Dashboard",
-sorted(
-ven_dash["fecha"]
-.dt.year.unique()
-) if not ven_dash.empty
-else [datetime.now().year]
-)
+        anio_d = st.selectbox(
+        "Año Dashboard",
+        sorted(
+        ven_dash["fecha"]
+        .dt.year.unique()
+        ) if not ven_dash.empty
+        else [datetime.now().year],
+        key="anio_dash_sel"
+        ) 
 
-if not ven_dash.empty:
+        if not ven_dash.empty: 
 
-ven_dash = ven_dash[
-ven_dash["fecha"].dt.year == anio
-]
+            ven_dash = ven_dash[
+            ven_dash["fecha"].dt.year == anio_d
+            ] 
 
-if not ven_dash.empty:
+    if not ven_dash.empty: 
 
-fig1 = px.bar(
-ven_dash.groupby("producto")[
-"ganancia"
- ].sum().reset_index(),
+        fig1 = px.bar(
+        ven_dash.groupby("producto")[
+        "ganancia"
+        ].sum().reset_index(), 
 
-x="producto",
-y="ganancia",
+        x="producto",
+        y="ganancia", 
 
-color="producto",
+        color="producto", 
 
-text_auto=True,
+        text_auto=True, 
 
-template="plotly_dark",
+        template="plotly_dark", 
 
-color_discrete_sequence=
-px.colors.qualitative.Bold
-)
+        color_discrete_sequence=
+        px.colors.qualitative.Bold
+        ) 
 
-st.plotly_chart(
-fig1,
-use_container_width=True
-)
+        st.plotly_chart(
+        fig1,
+        use_container_width=True
+        ) 
 
-pie = px.pie(
-ven_dash.groupby("producto")[
-"cantidad"
- ].sum().reset_index(),
+        pie = px.pie(
+        ven_dash.groupby("producto")[
+        "cantidad"
+        ].sum().reset_index(), 
 
-names="producto",
-values="cantidad",
+        names="producto",
+        values="cantidad", 
 
-hole=0.4,
+        hole=0.4, 
 
-template="plotly_dark",
+        template="plotly_dark", 
 
-color_discrete_sequence=
-px.colors.qualitative.Vivid
-)
+        color_discrete_sequence=
+        px.colors.qualitative.Vivid
+        ) 
 
-st.plotly_chart(
-pie,
-use_container_width=True
-)
+        st.plotly_chart(
+        pie,
+        use_container_width=True
+        ) 
 
-ventas_fecha = ven_dash.groupby(
-"fecha"
-)["ganancia"].sum().reset_index()
+        ventas_fecha = ven_dash.groupby(
+        "fecha"
+        )["ganancia"].sum().reset_index() 
 
-linea = px.line(
-ventas_fecha,
-x="fecha",
-y="ganancia",
-markers=True,
-template="plotly_dark"
-)
+        linea = px.line(
+        ventas_fecha,
+        x="fecha",
+        y="ganancia",
+        markers=True,
+        template="plotly_dark"
+        ) 
 
-st.plotly_chart(
-linea,
-use_container_width=True
-)
+        st.plotly_chart(
+        linea,
+        use_container_width=True
+        ) 
 
-top = ven_dash.groupby(
-"producto"
-)["cantidad"].sum().reset_index()
+        top = ven_dash.groupby(
+        "producto"
+        )["cantidad"].sum().reset_index() 
 
-top = top.sort_values(
-by="cantidad",
-ascending=False
-)
+        top = top.sort_values(
+        by="cantidad",
+        ascending=False
+        ) 
 
-st.subheader(
-"🏆 Top Productos"
-)
+        st.subheader(
+        "🏆 Top Productos"
+        ) 
 
-st.dataframe(
-top,
-use_container_width=True
-)
+        st.dataframe(
+        top,
+        use_container_width=True
+        ) 
 
-=========================================================
-EXPORTAR
-=========================================================
+# =========================================================
+# EXPORTAR
+# ========================================================= 
 
-with tab6:
+with tab6: 
 
-st.subheader("💾 Exportar")
+    st.subheader("💾 Exportar") 
 
-output = BytesIO()
+    output = BytesIO() 
 
-with pd.ExcelWriter(
-output,
-engine="xlsxwriter"
-) as writer:
+    with pd.ExcelWriter(
+    output,
+    engine="xlsxwriter"
+    ) as writer: 
 
-inv.to_excel(
-writer,
-index=False,
-sheet_name="Inventario"
-)
+        inv.to_excel(
+        writer,
+        index=False,
+        sheet_name="Inventario"
+        ) 
 
-ven.to_excel(
-writer,
-index=False,
-sheet_name="Ventas"
-)
+        ven.to_excel(
+        writer,
+        index=False,
+        sheet_name="Ventas"
+        ) 
 
-gas.to_excel(
-writer,
-index=False,
-sheet_name="Gastos"
-)
+        gas.to_excel(
+        writer,
+        index=False,
+        sheet_name="Gastos"
+        ) 
 
-st.download_button(
-"📥 Descargar ERP",
-output.getvalue(),
-"tulip_erp.xlsx"
-)
-
+    st.download_button(
+    "📥 Descargar ERP",
+    output.getvalue(),
+    "tulip_erp.xlsx"
+    )

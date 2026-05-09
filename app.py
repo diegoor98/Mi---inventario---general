@@ -1304,81 +1304,7 @@ with tab5:
         use_container_width=True
         ) 
 
-# =========================================================
-# EXPORTAR + IMPORTAR + LIMPIAR ERP
-# =========================================================
-
-with tab6:
-
-    st.subheader("💾 Exportar ERP")
-
-    output = BytesIO()
-
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-
-        inv.to_excel(writer, index=False, sheet_name="Inventario")
-        ven.to_excel(writer, index=False, sheet_name="Ventas")
-        gas.to_excel(writer, index=False, sheet_name="Gastos")
-
-    st.download_button(
-        "📥 Descargar ERP",
-        output.getvalue(),
-        "tulip_erp.xlsx"
-    )
-
-    st.divider()
-
-    # =====================================================
-    # 📥 IMPORTAR BACKUP ERP
-    # =====================================================
-
-    st.subheader("📥 Importar ERP desde Excel")
-
-    file = st.file_uploader(
-        "Subir archivo Excel",
-        type=["xlsx"]
-    )
-
-    if file:
-
-        try:
-
-            xls = pd.ExcelFile(file)
-
-            # ================= INVENTARIO =================
-            if "Inventario" in xls.sheet_names:
-
-                df_inv = pd.read_excel(xls, "Inventario")
-
-                cursor.execute("DELETE FROM inventario")
-
-                for _, r in df_inv.iterrows():
-
-                    cursor.execute("""
-                    INSERT INTO inventario
-                    VALUES(?,?,?,?,?,?)
-                    """, (
-                        int(r["id"]),
-                        str(r["producto"]),
-                        str(r["categoria"]),
-                        int(r["stock"]),
-                        float(r["costo"]),
-                        float(r["venta"])
-                    ))
-
-            # ================= VENTAS =================
-            if "Ventas" in xls.sheet_names:
-
-                df_ven = pd.read_excel(xls, "Ventas")
-
-                cursor.execute("DELETE FROM ventas")
-
-                for _, r in df_ven.iterrows():
-
-                    cursor.execute("""
-                    INSERT INTO ventas
-                    VALUES(?,?,?,?,?,?,?)
-                    """, (
+#
                         int(r["id"]),
                         str(r["fecha"]),
                         str(r["producto"]),
@@ -1441,4 +1367,153 @@ with tab6:
         else:
 
             st.error("Debes confirmar antes de limpiar")
+            
+# =========================================================
+# EXPORTAR + IMPORTAR + LIMPIAR ERP
+# =========================================================
+
+with tab6:
+
+    st.subheader("💾 Exportar ERP")
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+
+        inv.to_excel(writer, index=False, sheet_name="Inventario")
+        ven.to_excel(writer, index=False, sheet_name="Ventas")
+        gas.to_excel(writer, index=False, sheet_name="Gastos")
+
+    st.download_button(
+        "📥 Descargar ERP",
+        output.getvalue(),
+        "tulip_erp.xlsx"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # IMPORTAR ERP ROBUSTO (NO SE ROMPE SI FALTAN DATOS)
+    # =====================================================
+
+    st.subheader("📥 Importar ERP desde Excel")
+
+    file = st.file_uploader(
+        "Subir archivo Excel",
+        type=["xlsx"]
+    )
+
+    if file:
+
+        try:
+            xls = pd.ExcelFile(file)
+
+            # =================================================
+            # INVENTARIO
+            # =================================================
+            if "Inventario" in xls.sheet_names:
+
+                df_inv = pd.read_excel(xls, "Inventario")
+                df_inv.columns = [c.lower() for c in df_inv.columns]
+
+                cursor.execute("DELETE FROM inventario")
+
+                for _, r in df_inv.iterrows():
+
+                    producto = str(r.get("producto", "")).title()
+                    categoria = str(r.get("categoria", ""))
+
+                    stock = int(r.get("stock", 0) or 0)
+                    costo = float(r.get("costo", 0) or 0)
+                    venta = float(r.get("venta", 0) or 0)
+
+                    if producto.strip() == "":
+                        continue
+
+                    cursor.execute("""
+                    INSERT INTO inventario
+                    VALUES(NULL,?,?,?,?,?)
+                    """, (
+                        producto,
+                        categoria,
+                        stock,
+                        costo,
+                        venta
+                    ))
+
+            # =================================================
+            # VENTAS
+            # =================================================
+            if "Ventas" in xls.sheet_names:
+
+                df_ven = pd.read_excel(xls, "Ventas")
+                df_ven.columns = [c.lower() for c in df_ven.columns]
+
+                cursor.execute("DELETE FROM ventas")
+
+                for _, r in df_ven.iterrows():
+
+                    cursor.execute("""
+                    INSERT INTO ventas
+                    VALUES(NULL,?,?,?,?,?,?)
+                    """, (
+                        str(r.get("fecha", "")),
+                        str(r.get("producto", "")),
+                        int(r.get("cantidad", 0) or 0),
+                        float(r.get("costo_ref", 0) or 0),
+                        float(r.get("venta_ref", 0) or 0),
+                        float(r.get("ganancia", 0) or 0)
+                    ))
+
+            # =================================================
+            # GASTOS
+            # =================================================
+            if "Gastos" in xls.sheet_names:
+
+                df_gas = pd.read_excel(xls, "Gastos")
+                df_gas.columns = [c.lower() for c in df_gas.columns]
+
+                cursor.execute("DELETE FROM gastos")
+
+                for _, r in df_gas.iterrows():
+
+                    cursor.execute("""
+                    INSERT INTO gastos
+                    VALUES(NULL,?,?,?)
+                    """, (
+                        str(r.get("fecha", "")),
+                        str(r.get("concepto", "")),
+                        float(r.get("monto", 0) or 0)
+                    ))
+
+            conn.commit()
+
+            st.success("📦 Backup importado correctamente")
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"Error al importar: {e}")
+
+    st.divider()
+
+    # =====================================================
+    # LIMPIAR ERP
+    # =====================================================
+
+    st.subheader("🧹 Limpiar ERP")
+
+    st.warning("⚠ Esto eliminará TODO el sistema")
+
+    confirmar = st.checkbox("Confirmo limpiar todo")
+
+    if st.button("🧨 Limpiar ERP"):
+
+        if confirmar:
+
+            limpiar_erp()
+            st.success("ERP limpiado correctamente")
+            st.rerun()
+
+        else:
+            st.error("Debes confirmar primero")
             

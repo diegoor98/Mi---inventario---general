@@ -427,23 +427,23 @@ with tab1:
             horizontal=True
         )
 
-        producto = ""
-
         categoria0 = ""
         costo0 = 0.0
         venta0 = 0.0
 
         # =================================================
-        # PRODUCTO EXISTENTE
+        # EXISTENTE
         # =================================================
 
         if modo == "Existente" and not inv.empty:
 
-            producto = st.selectbox(
+            producto_existente = st.selectbox(
                 "Producto",
                 inv["producto"],
                 key="producto_existente"
             )
+
+            producto = producto_existente
 
             d = inv[
                 inv["producto"] == producto
@@ -454,15 +454,22 @@ with tab1:
             venta0 = d["venta"]
 
         # =================================================
-        # NUEVO PRODUCTO
+        # NUEVO
         # =================================================
 
         else:
 
-            producto = st.text_input(
+            producto_nuevo = st.text_input(
                 "Nuevo Producto",
-                key="nuevo_producto"
+                value="",
+                key="producto_nuevo"
             )
+
+            producto = producto_nuevo
+
+            categoria0 = ""
+            costo0 = 0.0
+            venta0 = 0.0
 
         categoria = st.text_input(
             "Categoria",

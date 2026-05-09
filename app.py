@@ -1,182 +1,673 @@
 import streamlit as st
 import pandas as pd
-import numpy_financial as npf
 import plotly.express as px
 from io import BytesIO
 from datetime import datetime
+import sqlite3
 
-# Configuración de Identidad Tulip S.A. 🌷
-st.set_page_config(page_title="Tulip S.A. ERP", page_icon="🌷", layout="wide")
+# =========================================================
+# CONFIGURACIÓN GENERAL
+# =========================================================
 
-# --- MEMORIA ACTIVA (Session State) ---
-if 'df_inv' not in st.session_state:
-    st.session_state.df_inv = pd.DataFrame(columns=["Producto", "Categoria", "Stock", "Costo", "Venta"])
-if 'df_ven' not in st.session_state:
-    st.session_state.df_ven = pd.DataFrame(columns=["Fecha", "Producto", "Cantidad", "Costo_Ref", "Venta_Ref", "Ganancia"])
-if 'df_ops' not in st.session_state:
-    st.session_state.df_ops = pd.DataFrame(columns=["Fecha", "Concepto", "Monto"])
+st.set_page_config(
+    page_title="Tulip S.A. ERP",
+    page_icon="🌷",
+    layout="wide"
+)
 
-def convertir_a_excel(df_inv, df_ven, df_ops):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_inv.to_excel(writer, index=False, sheet_name='Inventario')
-        df_ven.to_excel(writer, index=False, sheet_name='Ventas')
-        df_ops.to_excel(writer, index=False, sheet_name='Gastos')
-    return output.getvalue()
+# =========================================================
+# ESTILOS CSS
+# =========================================================
 
-st.markdown("<h1 style='text-align: center;'>🌷 Tulip S.A.</h1>", unsafe_allow_html=True)
+st.markdown("""
+<style>
 
-# --- CARGA AUTOMÁTICA DE DATOS ---
-archivo_subido = st.file_uploader("📂 Cargar Base de Datos Tulip S.A.", type=["xlsx"])
+.main {
+    background-color: #0E1117;
+}
 
-if archivo_subido is not None:
-    try:
-        # Solo cargamos si la memoria está vacía para no borrar lo que el usuario acaba de escribir
-        if st.sidebar.button("🔄 Sincronizar/Resetear con este archivo"):
-            st.session_state.df_inv = pd.read_excel(archivo_subido, sheet_name=0)
-            st.session_state.df_ven = pd.read_excel(archivo_subido, sheet_name=1)
-            st.session_state.df_ops = pd.read_excel(archivo_subido, sheet_name=2)
-            # Asegurar formato fecha
-            st.session_state.df_ven['Fecha'] = pd.to_datetime(st.session_state.df_ven['Fecha'], errors='coerce').fillna(pd.Timestamp.now())
-            st.session_state.df_ops['Fecha'] = pd.to_datetime(st.session_state.df_ops['Fecha'], errors='coerce').fillna(pd.Timestamp.now())
-            st.success("✅ Datos cargados en memoria.")
-    except:
-        st.sidebar.error("Formato no compatible.")
+h1, h2, h3 {
+    color: white;
+}
 
-# Referencias directas a la memoria activa
-inv = st.session_state.df_inv
-ven = st.session_state.df_ven
-ops = st.session_state.df_ops
+.stMetric {
+    background-color: #161B22;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #30363D;
+}
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📦 Stock", "🛒 Ventas", "💸 Gastos", "📑 Balance", "📈 Dashboard", "💾 Guardar"])
+div.stButton > button {
+    background-color: #FF4B91;
+    color: white;
+    border-radius: 10px;
+    border: none;
+    padding: 10px;
+    font-weight: bold;
+}
 
-# --- PESTAÑA 1: STOCK (SUMA CORREGIDA) ---
-with tab1:
-    st.subheader("Gestión de Inventario 🌷")
-    opciones = ["--- Nuevo Producto ---"] + sorted(list(inv['Producto'].unique())) if not inv.empty else ["--- Nuevo Producto ---"]
-    sel = st.selectbox("Selecciona producto:", opciones)
-    
-    if sel != "--- Nuevo Producto ---":
-        f_idx = inv[inv['Producto'] == sel].index[0]
-        d_n, d_c, d_s, d_co, d_v = sel, inv.at[f_idx, 'Categoria'], int(inv.at[f_idx, 'Stock']), float(inv.at[f_idx, 'Costo']), float(inv.at[f_idx, 'Venta'])
+div.stButton > button:hover {
+    background-color: #FF2E7A;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# BASE DE DATOS SQLITE
+# =========================================================
+
+conn = sqlite3.connect("tulip_erp.db", check_same_thread=False)
+cursor = conn.cursor()
+
+# TABLA INVENTARIO
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS inventario (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto TEXT UNIQUE,
+    categoria TEXT,
+    stock INTEGER,
+    costo REAL,
+    venta REAL
+)
+""")
+
+# TABLA VENTAS
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS ventas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT,
+    producto TEXT,
+    cantidad INTEGER,
+    costo_ref REAL,
+    venta_ref REAL,
+    ganancia REAL
+)
+""")
+
+# TABLA GASTOS
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS gastos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT,
+    concepto TEXT,
+    monto REAL
+)
+""")
+
+conn.commit()
+
+# =========================================================
+# FUNCIONES
+# =========================================================
+
+def cargar_datos():
+    df_inv = pd.read_sql("SELECT * FROM inventario", conn)
+    df_ven = pd.read_sql("SELECT * FROM ventas", conn)
+    df_gas = pd.read_sql("SELECT * FROM gastos", conn)
+
+    return df_inv, df_ven, df_gas
+
+
+def guardar_producto(producto, categoria, stock, costo, venta):
+
+    cursor.execute("""
+    SELECT * FROM inventario WHERE producto=?
+    """, (producto,))
+
+    existe = cursor.fetchone()
+
+    if existe:
+
+        nuevo_stock = existe[4] + stock
+
+        cursor.execute("""
+        UPDATE inventario
+        SET categoria=?, stock=?, costo=?, venta=?
+        WHERE producto=?
+        """, (categoria, nuevo_stock, costo, venta, producto))
+
     else:
-        f_idx, d_n, d_c, d_s, d_co, d_v = None, "", "", 0, 0.0, 0.0
 
-    nom_i = st.text_input("Nombre del Producto", value=d_n).capitalize()
-    cat_i = st.text_input("Categoría", value=d_c).capitalize()
-    
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        st.write(f"**Stock actual en sistema: {d_s}**")
-        sumar_cant = st.number_input("¿Cuánto vas a SUMAR?", min_value=0, step=1, value=0)
-    with col_s2:
-        costo_i = st.number_input("Costo Unitario:", value=d_co, format="%.2f")
-        venta_i = st.number_input("Precio Venta:", value=d_v, format="%.2f")
-    
-    if st.button("✅ GUARDAR CAMBIOS"):
-        if nom_i:
-            nuevo_total = d_s + sumar_cant
-            if f_idx is not None:
-                st.session_state.df_inv.loc[f_idx, ['Producto', 'Categoria', 'Stock', 'Costo', 'Venta']] = [nom_i, cat_i, nuevo_total, costo_i, venta_i]
+        cursor.execute("""
+        INSERT INTO inventario
+        (producto, categoria, stock, costo, venta)
+        VALUES (?, ?, ?, ?, ?)
+        """, (producto, categoria, stock, costo, venta))
+
+    conn.commit()
+
+
+def registrar_venta(fecha, producto, cantidad):
+
+    cursor.execute("""
+    SELECT * FROM inventario WHERE producto=?
+    """, (producto,))
+
+    prod = cursor.fetchone()
+
+    if prod is None:
+        return False, "Producto no encontrado"
+
+    id_p, nom, cat, stock, costo, venta = prod
+
+    if stock < cantidad:
+        return False, "Stock insuficiente"
+
+    nuevo_stock = stock - cantidad
+    ganancia = cantidad * (venta - costo)
+
+    cursor.execute("""
+    UPDATE inventario
+    SET stock=?
+    WHERE producto=?
+    """, (nuevo_stock, producto))
+
+    cursor.execute("""
+    INSERT INTO ventas
+    (fecha, producto, cantidad, costo_ref, venta_ref, ganancia)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        fecha,
+        producto,
+        cantidad,
+        costo,
+        venta,
+        ganancia
+    ))
+
+    conn.commit()
+
+    return True, "Venta registrada"
+
+
+def registrar_gasto(fecha, concepto, monto):
+
+    cursor.execute("""
+    INSERT INTO gastos
+    (fecha, concepto, monto)
+    VALUES (?, ?, ?)
+    """, (fecha, concepto, monto))
+
+    conn.commit()
+
+
+def eliminar_producto(id_producto):
+
+    cursor.execute("""
+    DELETE FROM inventario WHERE id=?
+    """, (id_producto,))
+
+    conn.commit()
+
+
+def convertir_excel(df_inv, df_ven, df_gas):
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+
+        df_inv.to_excel(
+            writer,
+            index=False,
+            sheet_name='Inventario'
+        )
+
+        df_ven.to_excel(
+            writer,
+            index=False,
+            sheet_name='Ventas'
+        )
+
+        df_gas.to_excel(
+            writer,
+            index=False,
+            sheet_name='Gastos'
+        )
+
+    output.seek(0)
+
+    return output
+
+
+# =========================================================
+# CARGAR DATOS
+# =========================================================
+
+inv, ven, gas = cargar_datos()
+
+# =========================================================
+# TÍTULO
+# =========================================================
+
+st.markdown(
+    "<h1 style='text-align:center;'>🌷 Tulip S.A. ERP</h1>",
+    unsafe_allow_html=True
+)
+
+# =========================================================
+# TABS
+# =========================================================
+
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📦 Inventario",
+    "🛒 Ventas",
+    "💸 Gastos",
+    "📑 Balance",
+    "📈 Dashboard",
+    "💾 Exportar"
+])
+
+# =========================================================
+# TAB INVENTARIO
+# =========================================================
+
+with tab1:
+
+    st.subheader("Gestión de Inventario")
+
+    with st.form("form_producto"):
+
+        producto = st.text_input(
+            "Producto"
+        ).strip().title()
+
+        categoria = st.text_input(
+            "Categoría"
+        ).strip().title()
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            stock = st.number_input(
+                "Cantidad",
+                min_value=0,
+                step=1
+            )
+
+        with col2:
+            costo = st.number_input(
+                "Costo",
+                min_value=0.0,
+                format="%.2f"
+            )
+
+        with col3:
+            venta = st.number_input(
+                "Precio Venta",
+                min_value=0.0,
+                format="%.2f"
+            )
+
+        guardar = st.form_submit_button(
+            "✅ Guardar Producto"
+        )
+
+        if guardar:
+
+            if producto == "":
+                st.warning("Ingrese nombre")
             else:
-                nueva_f = pd.DataFrame([{"Producto": nom_i, "Categoria": cat_i, "Stock": sumar_cant, "Costo": costo_i, "Venta": venta_i}])
-                st.session_state.df_inv = pd.concat([st.session_state.df_inv, nueva_f], ignore_index=True)
-            st.success(f"📦 ¡{nom_i} actualizado! Total: {nuevo_total}")
-            st.rerun()
+                guardar_producto(
+                    producto,
+                    categoria,
+                    stock,
+                    costo,
+                    venta
+                )
 
-    st.write("---")
-    st.dataframe(st.session_state.df_inv, use_container_width=True)
-
-# --- PESTAÑA 2: VENTAS (CON SUMA TOTAL) ---
-with tab2:
-    st.subheader("Historial y Registro de Ventas")
-    with st.expander("🛒 Registrar Venta"):
-        if not inv.empty:
-            p_v = st.selectbox("¿Qué vendiste?", inv['Producto'].unique())
-            c_v = st.number_input("Cantidad", min_value=1)
-            f_v = st.date_input("Fecha", datetime.now())
-            if st.button("🚀 Confirmar Venta"):
-                idx_v = inv[inv['Producto'] == p_v].index[0]
-                if inv.at[idx_v, 'Stock'] >= c_v:
-                    c_m, v_m = inv.at[idx_v, 'Costo'], inv.at[idx_v, 'Venta']
-                    gan = c_v * (v_m - c_m)
-                    st.session_state.df_inv.at[idx_v, 'Stock'] -= c_v
-                    nueva_v = pd.DataFrame([{"Fecha": pd.to_datetime(f_v), "Producto": p_v, "Cantidad": c_v, "Costo_Ref": c_m, "Venta_Ref": v_m, "Ganancia": gan}])
-                    st.session_state.df_ven = pd.concat([st.session_state.df_ven, nueva_v], ignore_index=True)
-                    st.success("Venta Exitosa")
-                    st.rerun()
+                st.success("Producto guardado")
+                st.rerun()
 
     st.divider()
-    meses = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
-    m_h = st.selectbox("Seleccionar Mes para Historial:", list(meses.values()), index=datetime.now().month-1)
-    
-    if not ven.empty:
-        ven['Fecha'] = pd.to_datetime(ven['Fecha'])
-        m_num = [k for k, v in meses.items() if v == m_h][0]
-        v_mes = ven[ven['Fecha'].dt.month == m_num]
-        st.dataframe(v_mes, use_container_width=True)
-        st.markdown(f"### 💰 Ganancia Total {m_h}: **${v_mes['Ganancia'].sum():,.2f}**")
 
-# --- PESTAÑA 3: GASTOS ---
-with tab3:
-    st.subheader("Registro de Gastos")
-    with st.form("g_add"):
-        con_g = st.text_input("Concepto (Alquiler, Luz, etc.)")
-        mon_g = st.number_input("Monto", min_value=0.0)
-        f_g = st.date_input("Fecha Gasto", datetime.now())
-        if st.form_submit_button("Añadir Gasto"):
-            new_g = pd.DataFrame([{"Fecha": pd.to_datetime(f_g), "Concepto": con_g, "Monto": mon_g}])
-            st.session_state.df_ops = pd.concat([st.session_state.df_ops, new_g], ignore_index=True)
+    st.dataframe(
+        inv,
+        use_container_width=True
+    )
+
+    st.divider()
+
+    st.subheader("Eliminar Producto")
+
+    if not inv.empty:
+
+        producto_del = st.selectbox(
+            "Seleccionar producto",
+            inv['producto']
+        )
+
+        if st.button("🗑 Eliminar"):
+
+            id_del = inv[
+                inv['producto'] == producto_del
+            ]['id'].values[0]
+
+            eliminar_producto(id_del)
+
+            st.success("Producto eliminado")
             st.rerun()
-    st.dataframe(st.session_state.df_ops, use_container_width=True)
 
-# --- PESTAÑA 4: BALANCE (SIN ERRORES) ---
+# =========================================================
+# TAB VENTAS
+# =========================================================
+
+with tab2:
+
+    st.subheader("Registro de Ventas")
+
+    if not inv.empty:
+
+        with st.form("form_venta"):
+
+            producto_v = st.selectbox(
+                "Producto",
+                inv['producto']
+            )
+
+            cantidad_v = st.number_input(
+                "Cantidad",
+                min_value=1,
+                step=1
+            )
+
+            fecha_v = st.date_input(
+                "Fecha",
+                datetime.now()
+            )
+
+            enviar_v = st.form_submit_button(
+                "🚀 Registrar Venta"
+            )
+
+            if enviar_v:
+
+                ok, msg = registrar_venta(
+                    str(fecha_v),
+                    producto_v,
+                    cantidad_v
+                )
+
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    st.divider()
+
+    st.dataframe(
+        ven,
+        use_container_width=True
+    )
+
+# =========================================================
+# TAB GASTOS
+# =========================================================
+
+with tab3:
+
+    st.subheader("Registro de Gastos")
+
+    with st.form("form_gastos"):
+
+        concepto = st.text_input(
+            "Concepto"
+        )
+
+        monto = st.number_input(
+            "Monto",
+            min_value=0.0
+        )
+
+        fecha_g = st.date_input(
+            "Fecha",
+            datetime.now()
+        )
+
+        enviar_g = st.form_submit_button(
+            "💸 Registrar Gasto"
+        )
+
+        if enviar_g:
+
+            registrar_gasto(
+                str(fecha_g),
+                concepto,
+                monto
+            )
+
+            st.success("Gasto registrado")
+            st.rerun()
+
+    st.divider()
+
+    st.dataframe(
+        gas,
+        use_container_width=True
+    )
+
+# =========================================================
+# TAB BALANCE
+# =========================================================
+
 with tab4:
-    st.header("📑 Balance tulip S.A.")
-    fil_b = st.radio("Filtro:", ["Mes", "Año"], horizontal=True)
-    col_b1, col_b2 = st.columns(2)
-    m_b = col_b1.selectbox("Mes:", list(meses.values()), index=datetime.now().month-1, key="mb")
-    a_b = col_b2.selectbox("Año:", list(range(2024, 2030)), index=list(range(2024, 2030)).index(datetime.now().year), key="ab")
-    
-    m_nb = [k for k, v in meses.items() if v == m_b][0]
-    
-    # Filtrado Seguro
-    df_v_filt = ven.copy()
-    df_o_filt = ops.copy()
-    df_v_filt['Fecha'] = pd.to_datetime(df_v_filt['Fecha'])
-    df_o_filt['Fecha'] = pd.to_datetime(df_o_filt['Fecha'])
 
-    if fil_b == "Mes":
-        v_final = df_v_filt[(df_v_filt['Fecha'].dt.month == m_nb) & (df_v_filt['Fecha'].dt.year == a_b)]
-        o_final = df_o_filt[(df_o_filt['Fecha'].dt.month == m_nb) & (df_o_filt['Fecha'].dt.year == a_b)]
+    st.header("📑 Balance General")
+
+    if not ven.empty:
+
+        ven['fecha'] = pd.to_datetime(
+            ven['fecha']
+        )
+
+    if not gas.empty:
+
+        gas['fecha'] = pd.to_datetime(
+            gas['fecha']
+        )
+
+    meses = {
+        1:"Enero",
+        2:"Febrero",
+        3:"Marzo",
+        4:"Abril",
+        5:"Mayo",
+        6:"Junio",
+        7:"Julio",
+        8:"Agosto",
+        9:"Septiembre",
+        10:"Octubre",
+        11:"Noviembre",
+        12:"Diciembre"
+    }
+
+    filtro = st.radio(
+        "Filtro",
+        ["Mes", "Año"],
+        horizontal=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        mes_nombre = st.selectbox(
+            "Mes",
+            list(meses.values()),
+            index=datetime.now().month - 1
+        )
+
+    with col2:
+
+        anio = st.selectbox(
+            "Año",
+            list(range(2024, 2031)),
+            index=2
+        )
+
+    mes_num = [
+        k for k, v in meses.items()
+        if v == mes_nombre
+    ][0]
+
+    if filtro == "Mes":
+
+        v_fil = ven[
+            (ven['fecha'].dt.month == mes_num) &
+            (ven['fecha'].dt.year == anio)
+        ]
+
+        g_fil = gas[
+            (gas['fecha'].dt.month == mes_num) &
+            (gas['fecha'].dt.year == anio)
+        ]
+
     else:
-        v_final = df_v_filt[df_v_filt['Fecha'].dt.year == a_b]
-        o_final = df_o_filt[df_o_filt['Fecha'].dt.year == a_b]
 
-    bruta, gastos = v_final['Ganancia'].sum(), o_final['Monto'].sum()
+        v_fil = ven[
+            ven['fecha'].dt.year == anio
+        ]
+
+        g_fil = gas[
+            gas['fecha'].dt.year == anio
+        ]
+
+    ganancia = v_fil['ganancia'].sum()
+    gastos = g_fil['monto'].sum()
+    utilidad = ganancia - gastos
+
     c1, c2, c3 = st.columns(3)
-    c1.metric("Ganancia Bruta", f"${bruta:,.2f}")
-    c2.metric("Gastos", f"- ${gastos:,.2f}")
-    c3.metric("Utilidad Neta", f"${bruta - gastos:,.2f}")
-    
-    inv_val = (inv['Stock'] * inv['Costo']).sum() if not inv.empty else 0
-    st.info(f"Capital en Stock hoy: ${inv_val:,.2f}")
 
-# --- PESTAÑA 5: DASHBOARD ---
+    c1.metric(
+        "Ganancia Bruta",
+        f"${ganancia:,.2f}"
+    )
+
+    c2.metric(
+        "Gastos",
+        f"${gastos:,.2f}"
+    )
+
+    c3.metric(
+        "Utilidad Neta",
+        f"${utilidad:,.2f}"
+    )
+
+    # KPIs
+
+    ventas_totales = (
+        v_fil['cantidad'] *
+        v_fil['venta_ref']
+    ).sum() if not v_fil.empty else 0
+
+    ticket_promedio = (
+        ventas_totales / len(v_fil)
+    ) if len(v_fil) > 0 else 0
+
+    st.info(
+        f"🎟 Ticket Promedio: ${ticket_promedio:,.2f}"
+    )
+
+    stock_total = (
+        inv['stock'] *
+        inv['costo']
+    ).sum() if not inv.empty else 0
+
+    st.info(
+        f"📦 Capital en Stock: ${stock_total:,.2f}"
+    )
+
+# =========================================================
+# TAB DASHBOARD
+# =========================================================
+
 with tab5:
-    st.header("📈 Dashboard Visual")
-    if not v_final.empty:
-        col_d1, col_d2 = st.columns(2)
-        fig1 = px.bar(v_final.groupby('Producto')['Ganancia'].sum().reset_index(), x='Producto', y='Ganancia', color='Producto', template="plotly_dark", title="Ganancia por Producto")
-        col_d1.plotly_chart(fig1, use_container_width=True)
-        if not o_final.empty:
-            fig2 = px.pie(o_final, values='Monto', names='Concepto', hole=0.5, template="plotly_dark", title="Gastos")
-            col_d2.plotly_chart(fig2, use_container_width=True)
-    else: st.info("Sin datos para graficar.")
 
-# --- PESTAÑA 6: GUARDAR ---
+    st.header("📈 Dashboard")
+
+    if not ven.empty:
+
+        col1, col2 = st.columns(2)
+
+        # GANANCIAS POR PRODUCTO
+
+        fig1 = px.bar(
+            ven.groupby('producto')['ganancia']
+            .sum()
+            .reset_index(),
+            x='producto',
+            y='ganancia',
+            color='producto',
+            template='plotly_dark',
+            title='Ganancia por Producto'
+        )
+
+        col1.plotly_chart(
+            fig1,
+            use_container_width=True
+        )
+
+        # GASTOS
+
+        if not gas.empty:
+
+            fig2 = px.pie(
+                gas,
+                values='monto',
+                names='concepto',
+                hole=0.5,
+                template='plotly_dark',
+                title='Distribución de Gastos'
+            )
+
+            col2.plotly_chart(
+                fig2,
+                use_container_width=True
+            )
+
+        # EVOLUCIÓN TEMPORAL
+
+        ventas_fecha = ven.groupby(
+            'fecha'
+        )['ganancia'].sum().reset_index()
+
+        fig3 = px.line(
+            ventas_fecha,
+            x='fecha',
+            y='ganancia',
+            markers=True,
+            template='plotly_dark',
+            title='Evolución de Ganancias'
+        )
+
+        st.plotly_chart(
+            fig3,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info("Sin datos suficientes.")
+
+# =========================================================
+# TAB EXPORTAR
+# =========================================================
+
 with tab6:
-    st.subheader("💾 Guardar y Descargar")
-    st.info("Descarga tu archivo para llevarte tus cambios.")
-    excel_ready = convertir_a_excel(st.session_state.df_inv, st.session_state.df_ven, st.session_state.df_ops)
-    st.download_button("📥 DESCARGAR EXCEL FINAL", data=excel_ready, file_name=f"Tulip_SA_ERP.xlsx", use_container_width=True)
+
+    st.subheader("💾 Exportar ERP")
+
+    excel_file = convertir_excel(
+        inv,
+        ven,
+        gas
+    )
+
+    st.download_button(
+        "📥 Descargar Excel",
+        data=excel_file,
+        file_name="Tulip_ERP.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )

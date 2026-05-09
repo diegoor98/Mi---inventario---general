@@ -1150,6 +1150,37 @@ with tab5:
 # ========================================================= 
 
 with tab6: 
+    st.download_button(
+"📥 Descargar ERP",
+output.getvalue(),
+"tulip_erp.xlsx"
+    )
+    st.divider()
+
+st.subheader("📥 Importar ERP desde Excel")
+
+file = st.file_uploader(
+"Subir archivo Excel",
+type=["xlsx"]
+)
+
+if file:
+
+    df = pd.read_excel(file)
+    df.columns = [c.lower() for c in df.columns]
+
+    for _, r in df.iterrows():
+
+        guardar_producto(
+            str(r.get("producto","")).title(),
+            str(r.get("categoria","")),
+            int(r.get("stock",0)),
+            float(r.get("costo",0)),
+            float(r.get("venta",0))
+        )
+
+    st.success("Importado correctamente")
+    st.rerun()
 
     st.subheader("💾 Exportar") 
 

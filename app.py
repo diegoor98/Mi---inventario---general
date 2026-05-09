@@ -593,10 +593,15 @@ with tab1:
 
     with st.form("inventario_form"): 
 
+        # ✅ FIX: mantener estado del radio
+        if "modo_inv" not in st.session_state:
+            st.session_state.modo_inv = "Existente"
+
         modo = st.radio(
-        "Modo",
-        ["Existente","Nuevo"],
-        horizontal=True
+            "Modo",
+            ["Existente","Nuevo"],
+            horizontal=True,
+            key="modo_inv"
         ) 
 
         producto_final = "" 
@@ -714,7 +719,8 @@ with tab1:
 
                     st.warning(
                     "Debes confirmar"
-                    ) 
+                    )
+                    
 
 # =========================================================
 # VENTAS

@@ -213,109 +213,109 @@ type=["xlsx"]
 
 if file:
 
-try:
+    try:
 
-xls = pd.ExcelFile(file)
+        xls = pd.ExcelFile(file)
 
-# =================================================
-# INVENTARIO
-# =================================================
+        # =================================================
+        # INVENTARIO
+        # =================================================
 
-if "Inventario" in xls.sheet_names:
+        if "Inventario" in xls.sheet_names:
 
-df_inv = pd.read_excel(
-xls,
-"Inventario"
-)
+            df_inv = pd.read_excel(
+            xls,
+            "Inventario"
+            )
 
-cursor.execute(
-"DELETE FROM inventario"
-)
+            cursor.execute(
+            "DELETE FROM inventario"
+            )
 
-for _,r in df_inv.iterrows():
+            for _,r in df_inv.iterrows():
 
-cursor.execute("""
-INSERT INTO inventario
-VALUES(?,?,?,?,?,?)
-""",(
-int(r["id"]),
-str(r["producto"]),
-str(r["categoria"]),
-int(r["stock"]),
-float(r["costo"]),
-float(r["venta"])
-))
+                cursor.execute("""
+                INSERT INTO inventario
+                VALUES(?,?,?,?,?,?)
+                """,(
+                int(r["id"]),
+                str(r["producto"]),
+                str(r["categoria"]),
+                int(r["stock"]),
+                float(r["costo"]),
+                float(r["venta"])
+                ))
 
-# =================================================
-# VENTAS
-# =================================================
+        # =================================================
+        # VENTAS
+        # =================================================
 
-if "Ventas" in xls.sheet_names:
+        if "Ventas" in xls.sheet_names:
 
-df_ven = pd.read_excel(
-xls,
-"Ventas"
-)
+            df_ven = pd.read_excel(
+            xls,
+            "Ventas"
+            )
 
-cursor.execute(
-"DELETE FROM ventas"
-)
+            cursor.execute(
+            "DELETE FROM ventas"
+            )
 
-for _,r in df_ven.iterrows():
+            for _,r in df_ven.iterrows():
 
-cursor.execute("""
-INSERT INTO ventas
-VALUES(?,?,?,?,?,?,?)
-""",(
-int(r["id"]),
-str(r["fecha"]),
-str(r["producto"]),
-int(r["cantidad"]),
-float(r["costo_ref"]),
-float(r["venta_ref"]),
-float(r["ganancia"])
-))
+                cursor.execute("""
+                INSERT INTO ventas
+                VALUES(?,?,?,?,?,?,?)
+                """,(
+                int(r["id"]),
+                str(r["fecha"]),
+                str(r["producto"]),
+                int(r["cantidad"]),
+                float(r["costo_ref"]),
+                float(r["venta_ref"]),
+                float(r["ganancia"])
+                ))
 
-# =================================================
-# GASTOS
-# =================================================
+        # =================================================
+        # GASTOS
+        # =================================================
 
-if "Gastos" in xls.sheet_names:
+        if "Gastos" in xls.sheet_names:
 
-df_gas = pd.read_excel(
-xls,
-"Gastos"
-)
+            df_gas = pd.read_excel(
+            xls,
+            "Gastos"
+            )
 
-cursor.execute(
-"DELETE FROM gastos"
-)
+            cursor.execute(
+            "DELETE FROM gastos"
+            )
 
-for _,r in df_gas.iterrows():
+            for _,r in df_gas.iterrows():
 
-cursor.execute("""
-INSERT INTO gastos
-VALUES(?,?,?,?)
-""",(
-int(r["id"]),
-str(r["fecha"]),
-str(r["concepto"]),
-float(r["monto"])
-))
+                cursor.execute("""
+                INSERT INTO gastos
+                VALUES(?,?,?,?)
+                """,(
+                int(r["id"]),
+                str(r["fecha"]),
+                str(r["concepto"]),
+                float(r["monto"])
+                ))
 
-conn.commit()
+        conn.commit()
 
-st.sidebar.success(
-"Backup restaurado correctamente"
-)
+        st.sidebar.success(
+        "Backup restaurado correctamente"
+        )
 
-st.rerun()
+        st.rerun()
 
-except Exception as e:
+    except Exception as e:
 
-st.sidebar.error(
-f"Error: {e}"
-)
+        st.sidebar.error(
+        f"Error: {e}"
+        )
 
 
 # =========================================================
@@ -539,19 +539,19 @@ def deshacer_ultima_venta():
 
 def limpiar_erp():
 
-cursor.execute(
-"DELETE FROM inventario"
-)
+    cursor.execute(
+    "DELETE FROM inventario"
+    )
 
-cursor.execute(
-"DELETE FROM ventas"
-)
+    cursor.execute(
+    "DELETE FROM ventas"
+    )
 
-cursor.execute(
-"DELETE FROM gastos"
-)
+    cursor.execute(
+    "DELETE FROM gastos"
+    )
 
-conn.commit()
+    conn.commit()
         
 
 # =========================================================
@@ -1267,37 +1267,6 @@ with tab5:
 # ========================================================= 
 
 with tab6: 
-    st.download_button(
-"📥 Descargar ERP",
-output.getvalue(),
-"tulip_erp.xlsx"
-    )
-    st.divider()
-
-st.subheader("📥 Importar ERP desde Excel")
-
-file = st.file_uploader(
-"Subir archivo Excel",
-type=["xlsx"]
-)
-
-if file:
-
-    df = pd.read_excel(file)
-    df.columns = [c.lower() for c in df.columns]
-
-    for _, r in df.iterrows():
-
-        guardar_producto(
-            str(r.get("producto","")).title(),
-            str(r.get("categoria","")),
-            int(r.get("stock",0)),
-            float(r.get("costo",0)),
-            float(r.get("venta",0))
-        )
-
-    st.success("Importado correctamente")
-    st.rerun()
 
     st.subheader("💾 Exportar") 
 
@@ -1331,3 +1300,30 @@ if file:
     output.getvalue(),
     "tulip_erp.xlsx"
     )
+
+    st.divider()
+
+    st.subheader("📥 Importar ERP desde Excel")
+
+    file = st.file_uploader(
+    "Subir archivo Excel",
+    type=["xlsx"]
+    )
+
+    if file:
+
+        df = pd.read_excel(file)
+        df.columns = [c.lower() for c in df.columns]
+
+        for _, r in df.iterrows():
+
+            guardar_producto(
+                str(r.get("producto","")).title(),
+                str(r.get("categoria","")),
+                int(r.get("stock",0)),
+                float(r.get("costo",0)),
+                float(r.get("venta",0))
+            )
+
+        st.success("Importado correctamente")
+        st.rerun()

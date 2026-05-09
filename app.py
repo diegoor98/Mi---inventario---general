@@ -16,38 +16,243 @@ st.set_page_config(
 )
 
 # =========================================================
-# ESTILOS
+# ESTILOS PREMIUM
 # =========================================================
 
 st.markdown("""
 <style>
 
+/* =======================================================
+FONDO GENERAL
+======================================================= */
+
 .main{
-    background-color:#0E1117;
+    background: linear-gradient(
+        135deg,
+        #0E1117 0%,
+        #161B22 100%
+    );
 }
 
-h1,h2,h3{
-    color:white;
+/* =======================================================
+TEXTOS
+======================================================= */
+
+h1{
+    color:#FFFFFF;
+    font-weight:800;
 }
 
-.stMetric{
-    background:#161B22;
-    padding:15px;
-    border-radius:15px;
-    border:1px solid #30363D;
+h2,h3,h4{
+    color:#F8FAFC;
 }
+
+/* =======================================================
+METRICS
+======================================================= */
+
+[data-testid="stMetric"]{
+
+    background: linear-gradient(
+        145deg,
+        #1E293B,
+        #111827
+    );
+
+    border:1px solid #334155;
+
+    padding:20px;
+
+    border-radius:18px;
+
+    box-shadow:
+    0 4px 20px rgba(0,0,0,0.35);
+
+    transition:0.3s;
+}
+
+[data-testid="stMetric"]:hover{
+
+    transform:translateY(-3px);
+
+    border:1px solid #FF4B91;
+}
+
+/* =======================================================
+BOTONES
+======================================================= */
 
 div.stButton > button{
-    background:#FF4B91;
+
+    background: linear-gradient(
+        90deg,
+        #FF4B91,
+        #FF2E7A
+    );
+
     color:white;
+
     border:none;
-    border-radius:10px;
+
+    border-radius:12px;
+
     padding:10px 18px;
-    font-weight:bold;
+
+    font-weight:700;
+
+    transition:0.25s;
+
+    box-shadow:
+    0 4px 12px rgba(255,75,145,0.3);
 }
 
 div.stButton > button:hover{
-    background:#FF2E7A;
+
+    transform:scale(1.04);
+
+    background: linear-gradient(
+        90deg,
+        #7C3AED,
+        #9333EA
+    );
+}
+
+/* =======================================================
+INPUTS
+======================================================= */
+
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input{
+
+    background-color:#111827;
+
+    color:white;
+
+    border:1px solid #334155;
+
+    border-radius:10px;
+}
+
+/* =======================================================
+SELECTBOX
+======================================================= */
+
+.stSelectbox div[data-baseweb="select"]{
+
+    background-color:#111827;
+
+    border-radius:10px;
+
+    border:1px solid #334155;
+}
+
+/* =======================================================
+TABS
+======================================================= */
+
+button[data-baseweb="tab"]{
+
+    background:#111827;
+
+    color:#CBD5E1;
+
+    border-radius:12px;
+
+    margin-right:5px;
+
+    padding:10px 20px;
+
+    transition:0.2s;
+}
+
+button[data-baseweb="tab"]:hover{
+
+    background:#1E293B;
+
+    color:white;
+}
+
+button[aria-selected="true"]{
+
+    background: linear-gradient(
+        90deg,
+        #EC4899,
+        #8B5CF6
+    ) !important;
+
+    color:white !important;
+}
+
+/* =======================================================
+DATAFRAMES
+======================================================= */
+
+[data-testid="stDataFrame"]{
+
+    border:1px solid #334155;
+
+    border-radius:15px;
+
+    overflow:hidden;
+}
+
+/* =======================================================
+SIDEBAR
+======================================================= */
+
+section[data-testid="stSidebar"]{
+
+    background: linear-gradient(
+        180deg,
+        #111827,
+        #0F172A
+    );
+}
+
+/* =======================================================
+SUCCESS
+======================================================= */
+
+.stSuccess{
+
+    background-color:#052E16;
+
+    border:1px solid #22C55E;
+
+    color:#DCFCE7;
+
+    border-radius:12px;
+}
+
+/* =======================================================
+ERROR
+======================================================= */
+
+.stError{
+
+    background-color:#450A0A;
+
+    border:1px solid #EF4444;
+
+    color:#FEE2E2;
+
+    border-radius:12px;
+}
+
+/* =======================================================
+WARNING
+======================================================= */
+
+.stWarning{
+
+    background-color:#451A03;
+
+    border:1px solid #F59E0B;
+
+    color:#FEF3C7;
+
+    border-radius:12px;
 }
 
 </style>
@@ -106,24 +311,24 @@ conn.commit()
 # FUNCIONES
 # =========================================================
 
-def cargar_datos():
+def cargar():
 
-    inventario = pd.read_sql(
-        "SELECT * FROM inventario",
-        conn
+    return (
+        pd.read_sql(
+            "SELECT * FROM inventario",
+            conn
+        ),
+
+        pd.read_sql(
+            "SELECT * FROM ventas",
+            conn
+        ),
+
+        pd.read_sql(
+            "SELECT * FROM gastos",
+            conn
+        )
     )
-
-    ventas = pd.read_sql(
-        "SELECT * FROM ventas",
-        conn
-    )
-
-    gastos = pd.read_sql(
-        "SELECT * FROM gastos",
-        conn
-    )
-
-    return inventario, ventas, gastos
 
 # =========================================================
 
@@ -189,19 +394,21 @@ def registrar_venta(
         (producto,)
     )
 
-    dato = cursor.fetchone()
+    d = cursor.fetchone()
 
-    if not dato:
+    if not d:
         return False, "Producto no existe"
 
-    _,_,_,stock,costo,venta = dato
+    _,_,_,stock,costo,venta = d
 
     if cantidad > stock:
-        return False, "Stock insuficiente"
+        return False, f"Stock insuficiente ({stock})"
 
     nuevo_stock = stock - cantidad
 
-    ganancia = cantidad * (venta - costo)
+    ganancia = cantidad * (
+        venta - costo
+    )
 
     cursor.execute("""
     UPDATE inventario
@@ -259,10 +466,10 @@ def eliminar_producto(producto):
     conn.commit()
 
 # =========================================================
-# CARGAR DATOS
+# DATOS
 # =========================================================
 
-inv, ven, gas = cargar_datos()
+inv, ven, gas = cargar()
 
 # =========================================================
 # TITULO
@@ -293,62 +500,35 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 
 with tab1:
 
-    st.subheader("Inventario")
+    st.subheader("📦 Inventario")
 
-    buscar = st.text_input(
-        "🔍 Buscar producto"
+    modo = st.radio(
+        "Modo",
+        ["Existente","Nuevo"],
+        horizontal=True
     )
-
-    inv_filtrado = inv.copy()
-
-    if buscar:
-
-        inv_filtrado = inv[
-            inv["producto"]
-            .str.contains(
-                buscar,
-                case=False
-            )
-        ]
 
     with st.form("inventario_form"):
 
-        modo = st.radio(
-            "Modo",
-            ["Existente","Nuevo"],
-            horizontal=True
-        )
-
         producto = ""
+        categoria0 = ""
+        costo0 = 0.0
+        venta0 = 0.0
 
-        categoria_default = ""
-        costo_default = 0.0
-        venta_default = 0.0
+        if modo == "Existente" and not inv.empty:
 
-        # =================================================
-        # EXISTENTE
-        # =================================================
+            producto = st.selectbox(
+                "Producto",
+                inv["producto"]
+            )
 
-        if modo == "Existente":
+            fila = inv[
+                inv["producto"] == producto
+            ].iloc[0]
 
-            if not inv.empty:
-
-                producto = st.selectbox(
-                    "Producto",
-                    inv["producto"]
-                )
-
-                fila = inv[
-                    inv["producto"] == producto
-                ].iloc[0]
-
-                categoria_default = fila["categoria"]
-                costo_default = fila["costo"]
-                venta_default = fila["venta"]
-
-        # =================================================
-        # NUEVO
-        # =================================================
+            categoria0 = fila["categoria"]
+            costo0 = fila["costo"]
+            venta0 = fila["venta"]
 
         else:
 
@@ -358,7 +538,7 @@ with tab1:
 
         categoria = st.text_input(
             "Categoria",
-            value=categoria_default
+            value=categoria0
         )
 
         c1,c2,c3 = st.columns(3)
@@ -373,14 +553,14 @@ with tab1:
             costo = st.number_input(
                 "Costo",
                 min_value=0.0,
-                value=float(costo_default)
+                value=float(costo0)
             )
 
         with c3:
             venta = st.number_input(
                 "Venta",
                 min_value=0.0,
-                value=float(venta_default)
+                value=float(venta0)
             )
 
         guardar = st.form_submit_button(
@@ -389,77 +569,24 @@ with tab1:
 
         if guardar:
 
-            if producto.strip() == "":
+            guardar_producto(
+                producto.title(),
+                categoria,
+                stock,
+                costo,
+                venta
+            )
 
-                st.error(
-                    "Ingrese producto"
-                )
+            st.success(
+                "Producto guardado"
+            )
 
-            else:
-
-                guardar_producto(
-                    producto.title(),
-                    categoria,
-                    stock,
-                    costo,
-                    venta
-                )
-
-                st.success(
-                    "Producto guardado"
-                )
-
-                st.rerun()
+            st.rerun()
 
     st.dataframe(
-        inv_filtrado,
+        inv,
         use_container_width=True
     )
-
-    # =====================================================
-    # ELIMINAR PRODUCTO
-    # =====================================================
-
-    st.subheader("🗑 Eliminar Producto")
-
-    if not inv.empty:
-
-        producto_eliminar = st.selectbox(
-            "Seleccionar producto",
-            inv["producto"],
-            key="eliminar_producto"
-        )
-
-        confirmar = st.checkbox(
-            "Estoy seguro de eliminar"
-        )
-
-        c1,c2 = st.columns([1,5])
-
-        with c1:
-
-            if st.button(
-                "Eliminar",
-                key="btn_eliminar"
-            ):
-
-                if confirmar:
-
-                    eliminar_producto(
-                        producto_eliminar
-                    )
-
-                    st.success(
-                        "Producto eliminado"
-                    )
-
-                    st.rerun()
-
-                else:
-
-                    st.warning(
-                        "Debes confirmar"
-                    )
 
 # =========================================================
 # VENTAS
@@ -467,7 +594,7 @@ with tab1:
 
 with tab2:
 
-    st.subheader("Ventas")
+    st.subheader("🛒 Ventas")
 
     if not inv.empty:
 
@@ -476,6 +603,16 @@ with tab2:
             producto = st.selectbox(
                 "Producto",
                 inv["producto"]
+            )
+
+            stock_actual = int(
+                inv[
+                    inv["producto"] == producto
+                ]["stock"].values[0]
+            )
+
+            st.info(
+                f"Stock disponible: {stock_actual}"
             )
 
             cantidad = st.number_input(
@@ -494,7 +631,7 @@ with tab2:
 
             if vender:
 
-                ok, mensaje = registrar_venta(
+                ok, msg = registrar_venta(
                     str(fecha),
                     producto,
                     cantidad
@@ -502,13 +639,12 @@ with tab2:
 
                 if ok:
 
-                    st.success(mensaje)
-
+                    st.success(msg)
                     st.rerun()
 
                 else:
 
-                    st.error(mensaje)
+                    st.error(msg)
 
     st.dataframe(
         ven,
@@ -521,7 +657,7 @@ with tab2:
 
 with tab3:
 
-    st.subheader("Gastos")
+    st.subheader("💸 Gastos")
 
     with st.form("gastos_form"):
 
@@ -575,7 +711,7 @@ with tab4:
         if not ven.empty else 0
     )
 
-    ganancias_total = (
+    ganancias = (
         ven["ganancia"].sum()
         if not ven.empty else 0
     )
@@ -585,9 +721,7 @@ with tab4:
         if not gas.empty else 0
     )
 
-    utilidad_neta = (
-        ganancias_total - gastos_total
-    )
+    utilidad = ganancias - gastos_total
 
     stock_total = (
         inv["stock"].sum()
@@ -613,7 +747,7 @@ with tab4:
 
     c2.metric(
         "📈 Ganancias",
-        f"S/ {ganancias_total:,.2f}"
+        f"S/ {ganancias:,.2f}"
     )
 
     c3.metric(
@@ -622,14 +756,14 @@ with tab4:
     )
 
     c4.metric(
-        "🏦 Utilidad Neta",
-        f"S/ {utilidad_neta:,.2f}"
+        "🏦 Utilidad",
+        f"S/ {utilidad:,.2f}"
     )
 
     c5,c6,c7 = st.columns(3)
 
     c5.metric(
-        "📦 Stock Total",
+        "📦 Stock",
         stock_total
     )
 
@@ -644,34 +778,24 @@ with tab4:
     )
 
 # =========================================================
-# DASHBOARD
+# DASHBOARD PRO
 # =========================================================
 
 with tab5:
 
     st.subheader("📈 Dashboard Ejecutivo")
 
-    # =====================================================
-    # KPIs
-    # =====================================================
-
     ventas_total = (
         ven["venta_ref"].sum()
         if not ven.empty else 0
     )
 
-    ganancias_total = (
+    utilidad = (
         ven["ganancia"].sum()
         if not ven.empty else 0
-    )
-
-    gastos_total = (
+    ) - (
         gas["monto"].sum()
         if not gas.empty else 0
-    )
-
-    utilidad_neta = (
-        ganancias_total - gastos_total
     )
 
     productos_vendidos = (
@@ -684,33 +808,6 @@ with tab5:
         if not inv.empty else 0
     )
 
-    inventario_costo = (
-        (inv["stock"] * inv["costo"]).sum()
-        if not inv.empty else 0
-    )
-
-    inventario_venta = (
-        (inv["stock"] * inv["venta"]).sum()
-        if not inv.empty else 0
-    )
-
-    stock_bajo = (
-        len(inv[inv["stock"] < 5])
-        if not inv.empty else 0
-    )
-
-    producto_top = "-"
-
-    if not ven.empty:
-
-        producto_top = (
-            ven.groupby("producto")[
-                "cantidad"
-            ]
-            .sum()
-            .idxmax()
-        )
-
     c1,c2,c3,c4 = st.columns(4)
 
     c1.metric(
@@ -720,7 +817,7 @@ with tab5:
 
     c2.metric(
         "📈 Utilidad",
-        f"S/ {utilidad_neta:,.2f}"
+        f"S/ {utilidad:,.2f}"
     )
 
     c3.metric(
@@ -731,28 +828,6 @@ with tab5:
     c4.metric(
         "📦 Stock",
         stock_total
-    )
-
-    c5,c6,c7,c8 = st.columns(4)
-
-    c5.metric(
-        "⚠ Stock Bajo",
-        stock_bajo
-    )
-
-    c6.metric(
-        "🏆 Más Vendido",
-        producto_top
-    )
-
-    c7.metric(
-        "🏭 Inventario",
-        f"S/ {inventario_costo:,.2f}"
-    )
-
-    c8.metric(
-        "🏪 Valorizado",
-        f"S/ {inventario_venta:,.2f}"
     )
 
     st.divider()
@@ -768,12 +843,22 @@ with tab5:
         )
 
         fig1 = px.bar(
+
             ven.groupby("producto")[
                 "ganancia"
             ].sum().reset_index(),
+
             x="producto",
             y="ganancia",
-            text_auto=True
+
+            color="producto",
+
+            text_auto=True,
+
+            template="plotly_dark",
+
+            color_discrete_sequence=
+            px.colors.qualitative.Bold
         )
 
         st.plotly_chart(
@@ -792,12 +877,20 @@ with tab5:
         )
 
         pie = px.pie(
+
             ven.groupby("producto")[
                 "cantidad"
             ].sum().reset_index(),
+
             names="producto",
             values="cantidad",
-            hole=0.4
+
+            hole=0.4,
+
+            template="plotly_dark",
+
+            color_discrete_sequence=
+            px.colors.qualitative.Bold
         )
 
         st.plotly_chart(
@@ -806,7 +899,7 @@ with tab5:
         )
 
     # =====================================================
-    # GRAFICO LINEA
+    # LINEA
     # =====================================================
 
     if not ven.empty:
@@ -820,12 +913,20 @@ with tab5:
         )
 
         linea = px.line(
+
             ven.groupby("fecha")[
                 "ganancia"
             ].sum().reset_index(),
+
             x="fecha",
             y="ganancia",
-            markers=True
+
+            markers=True,
+
+            template="plotly_dark",
+
+            color_discrete_sequence=
+            px.colors.qualitative.Bold
         )
 
         st.plotly_chart(
@@ -834,7 +935,7 @@ with tab5:
         )
 
     # =====================================================
-    # STOCK ACTUAL
+    # STOCK
     # =====================================================
 
     if not inv.empty:
@@ -844,55 +945,27 @@ with tab5:
         )
 
         stock_fig = px.bar(
+
             inv,
+
             x="stock",
             y="producto",
+
             orientation="h",
-            text_auto=True
+
+            color="producto",
+
+            text_auto=True,
+
+            template="plotly_dark",
+
+            color_discrete_sequence=
+            px.colors.qualitative.Bold
         )
 
         st.plotly_chart(
             stock_fig,
             use_container_width=True
-        )
-
-    # =====================================================
-    # ALERTAS
-    # =====================================================
-
-    st.subheader("🚨 Alertas")
-
-    agotados = inv[
-        inv["stock"] == 0
-    ]
-
-    bajos = inv[
-        (inv["stock"] > 0) &
-        (inv["stock"] < 5)
-    ]
-
-    if not agotados.empty:
-
-        st.error(
-            f"❌ {len(agotados)} productos agotados"
-        )
-
-        st.dataframe(
-            agotados[
-                ["producto","stock"]
-            ]
-        )
-
-    if not bajos.empty:
-
-        st.warning(
-            f"⚠ {len(bajos)} productos con stock bajo"
-        )
-
-        st.dataframe(
-            bajos[
-                ["producto","stock"]
-            ]
         )
 
 # =========================================================
@@ -901,7 +974,7 @@ with tab5:
 
 with tab6:
 
-    st.subheader("💾 Exportar Excel")
+    st.subheader("💾 Exportar")
 
     output = BytesIO()
 

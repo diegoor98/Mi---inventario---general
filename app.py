@@ -760,6 +760,10 @@ with tab4:
 
     st.subheader("📑 Balance General")
 
+    # =====================================================
+    # CALCULOS
+    # =====================================================
+
     ventas_total = (
         ven["venta_ref"].sum()
         if not ven.empty else 0
@@ -787,20 +791,37 @@ with tab4:
         if not inv.empty else 0
     )
 
-    costo_stock_total = (
+    # =====================================================
+    # INVENTARIO
+    # =====================================================
+
+    valor_inventario_costo = (
         (inv["stock"] * inv["costo"]).sum()
         if not inv.empty else 0
     )
 
-    inversion_inventario = (
-        (inv["stock"] * inv["costo"]).sum()
-        if not inv.empty else 0
-    )
-
-    valor_venta_inventario = (
+    valor_inventario_venta = (
         (inv["stock"] * inv["venta"]).sum()
         if not inv.empty else 0
     )
+
+    ganancia_potencial_stock = (
+        valor_inventario_venta -
+        valor_inventario_costo
+    )
+
+    # =====================================================
+    # COSTO DE VENTAS
+    # =====================================================
+
+    costo_ventas = (
+        (ven["cantidad"] * ven["costo_ref"]).sum()
+        if not ven.empty else 0
+    )
+
+    # =====================================================
+    # OTROS INDICADORES
+    # =====================================================
 
     productos_bajo_stock = (
         len(inv[inv["stock"] < 5])
@@ -822,6 +843,25 @@ with tab4:
         if ventas_total > 0 else 0
     )
 
+    rotacion = (
+        costo_ventas / valor_inventario_costo
+        if valor_inventario_costo > 0 else 0
+    )
+
+    # =====================================================
+    # PRODUCTO TOP
+    # =====================================================
+
+    producto_top = "-"
+
+    if not ven.empty:
+
+        top = ven.groupby("producto")[
+            "cantidad"
+        ].sum().idxmax()
+
+        producto_top = top
+
     # =====================================================
     # FILA 1
     # =====================================================
@@ -834,7 +874,7 @@ with tab4:
     )
 
     c2.metric(
-        "📈 Ganancias",
+        "📈 Ganancia Bruta",
         f"S/ {ganancias:,.2f}"
     )
 
@@ -854,7 +894,7 @@ with tab4:
     # FILA 2
     # =====================================================
 
-    c5, c6, c7, c8, c9 = st.columns(5)
+    c5, c6, c7, c8 = st.columns(4)
 
     c5.metric(
         "📦 Productos",
@@ -876,60 +916,68 @@ with tab4:
         total_ventas_realizadas
     )
 
+    st.divider()
+
+    # =====================================================
+    # FILA 3 INVENTARIO
+    # =====================================================
+
+    c9, c10, c11 = st.columns(3)
+
     c9.metric(
-        "💵 Costo Total Stock",
-        f"S/ {costo_stock_total:,.2f}"
+        "🏭 Valor Inventario al Costo",
+        f"S/ {valor_inventario_costo:,.2f}"
+    )
+
+    c10.metric(
+        "🏪 Inventario Valorizado",
+        f"S/ {valor_inventario_venta:,.2f}"
+    )
+
+    c11.metric(
+        "💵 Ganancia Potencial Stock",
+        f"S/ {ganancia_potencial_stock:,.2f}"
     )
 
     st.divider()
 
     # =====================================================
-    # FILA 3
+    # FILA 4 RENTABILIDAD
     # =====================================================
 
-    c10, c11, c12 = st.columns(3)
-
-    c10.metric(
-        "🏭 Valor Inventario (Costo)",
-        f"S/ {inversion_inventario:,.2f}"
-    )
-
-    c11.metric(
-        "🏪 Valor Inventario (Venta)",
-        f"S/ {valor_venta_inventario:,.2f}"
-    )
+    c12, c13, c14 = st.columns(3)
 
     c12.metric(
         "📊 Margen",
         f"{margen:.2f}%"
     )
 
-    st.divider()
-
-    # =====================================================
-    # FILA 4
-    # =====================================================
-
-    c13, c14 = st.columns(2)
-
     c13.metric(
         "🧾 Ticket Promedio",
         f"S/ {ticket_promedio:,.2f}"
     )
 
-    producto_top = "-"
-
-    if not ven.empty:
-
-        top = ven.groupby("producto")[
-            "cantidad"
-        ].sum().idxmax()
-
-        producto_top = top
-
     c14.metric(
+        "🔄 Rotación Inventario",
+        f"{rotacion:.2f}"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # FILA 5
+    # =====================================================
+
+    c15, c16 = st.columns(2)
+
+    c15.metric(
         "🔥 Producto Más Vendido",
         producto_top
+    )
+
+    c16.metric(
+        "🏷 Costo de Ventas",
+        f"S/ {costo_ventas:,.2f}"
     )
 
 # =========================================================

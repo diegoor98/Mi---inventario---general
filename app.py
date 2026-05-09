@@ -433,14 +433,16 @@ with tab1:
         costo0 = 0.0
         venta0 = 0.0
 
-        if (
-            modo == "Existente"
-            and not inv.empty
-        ):
+        # =================================================
+        # PRODUCTO EXISTENTE
+        # =================================================
+
+        if modo == "Existente" and not inv.empty:
 
             producto = st.selectbox(
                 "Producto",
-                inv["producto"]
+                inv["producto"],
+                key="producto_existente"
             )
 
             d = inv[
@@ -451,10 +453,15 @@ with tab1:
             costo0 = d["costo"]
             venta0 = d["venta"]
 
+        # =================================================
+        # NUEVO PRODUCTO
+        # =================================================
+
         else:
 
             producto = st.text_input(
-                "Producto"
+                "Nuevo Producto",
+                key="nuevo_producto"
             )
 
         categoria = st.text_input(
@@ -570,7 +577,7 @@ with tab1:
                 )
 
     # =====================================================
-    # ELIMINAR PRODUCTO SEGURO
+    # ELIMINAR PRODUCTO
     # =====================================================
 
     st.subheader("🗑 Eliminar Producto")
@@ -619,10 +626,6 @@ with tab1:
                 key="btn_cancelar"
             )
 
-        # =================================================
-        # ELIMINAR
-        # =================================================
-
         if eliminar_btn:
 
             if confirmar:
@@ -640,10 +643,6 @@ with tab1:
                 st.warning(
                     "Debe confirmar la eliminación"
                 )
-
-        # =================================================
-        # CANCELAR
-        # =================================================
 
         if cancelar_btn:
 

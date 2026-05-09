@@ -22,10 +22,6 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* =======================================================
-FONDO GENERAL
-======================================================= */
-
 .main{
     background: linear-gradient(
         135deg,
@@ -34,12 +30,8 @@ FONDO GENERAL
     );
 }
 
-/* =======================================================
-TEXTOS
-======================================================= */
-
 h1{
-    color:#FFFFFF;
+    color:white;
     font-weight:800;
 }
 
@@ -47,12 +39,7 @@ h2,h3,h4{
     color:#F8FAFC;
 }
 
-/* =======================================================
-METRICS
-======================================================= */
-
 [data-testid="stMetric"]{
-
     background: linear-gradient(
         145deg,
         #1E293B,
@@ -72,22 +59,16 @@ METRICS
 }
 
 [data-testid="stMetric"]:hover{
-
     transform:translateY(-3px);
-
     border:1px solid #FF4B91;
 }
-
-/* =======================================================
-BOTONES
-======================================================= */
 
 div.stButton > button{
 
     background: linear-gradient(
         90deg,
         #FF4B91,
-        #FF2E7A
+        #9333EA
     );
 
     color:white;
@@ -99,62 +80,38 @@ div.stButton > button{
     padding:10px 18px;
 
     font-weight:700;
-
-    transition:0.25s;
-
-    box-shadow:
-    0 4px 12px rgba(255,75,145,0.3);
 }
 
 div.stButton > button:hover{
 
-    transform:scale(1.04);
-
     background: linear-gradient(
         90deg,
         #7C3AED,
-        #9333EA
+        #EC4899
     );
-}
 
-/* =======================================================
-INPUTS
-======================================================= */
+    transform:scale(1.03);
+}
 
 .stTextInput input,
 .stNumberInput input,
 .stDateInput input{
 
-    background-color:#111827;
-
+    background:#111827;
     color:white;
-
-    border:1px solid #334155;
-
     border-radius:10px;
+    border:1px solid #334155;
 }
-
-/* =======================================================
-SELECTBOX
-======================================================= */
 
 .stSelectbox div[data-baseweb="select"]{
 
-    background-color:#111827;
-
+    background:#111827;
     border-radius:10px;
-
-    border:1px solid #334155;
 }
-
-/* =======================================================
-TABS
-======================================================= */
 
 button[data-baseweb="tab"]{
 
     background:#111827;
-
     color:#CBD5E1;
 
     border-radius:12px;
@@ -162,15 +119,6 @@ button[data-baseweb="tab"]{
     margin-right:5px;
 
     padding:10px 20px;
-
-    transition:0.2s;
-}
-
-button[data-baseweb="tab"]:hover{
-
-    background:#1E293B;
-
-    color:white;
 }
 
 button[aria-selected="true"]{
@@ -184,74 +132,20 @@ button[aria-selected="true"]{
     color:white !important;
 }
 
-/* =======================================================
-DATAFRAMES
-======================================================= */
-
 [data-testid="stDataFrame"]{
-
-    border:1px solid #334155;
-
     border-radius:15px;
-
     overflow:hidden;
 }
 
-/* =======================================================
-SIDEBAR
-======================================================= */
-
-section[data-testid="stSidebar"]{
-
-    background: linear-gradient(
-        180deg,
-        #111827,
-        #0F172A
-    );
-}
-
-/* =======================================================
-SUCCESS
-======================================================= */
-
 .stSuccess{
-
-    background-color:#052E16;
-
-    border:1px solid #22C55E;
-
-    color:#DCFCE7;
-
     border-radius:12px;
 }
-
-/* =======================================================
-ERROR
-======================================================= */
 
 .stError{
-
-    background-color:#450A0A;
-
-    border:1px solid #EF4444;
-
-    color:#FEE2E2;
-
     border-radius:12px;
 }
 
-/* =======================================================
-WARNING
-======================================================= */
-
 .stWarning{
-
-    background-color:#451A03;
-
-    border:1px solid #F59E0B;
-
-    color:#FEF3C7;
-
     border-radius:12px;
 }
 
@@ -502,15 +396,16 @@ with tab1:
 
     st.subheader("📦 Inventario")
 
-    modo = st.radio(
-        "Modo",
-        ["Existente","Nuevo"],
-        horizontal=True
-    )
-
     with st.form("inventario_form"):
 
+        modo = st.radio(
+            "Modo",
+            ["Existente","Nuevo"],
+            horizontal=True
+        )
+
         producto = ""
+
         categoria0 = ""
         costo0 = 0.0
         venta0 = 0.0
@@ -587,6 +482,48 @@ with tab1:
         inv,
         use_container_width=True
     )
+
+    # =====================================================
+    # ELIMINAR
+    # =====================================================
+
+    st.subheader("🗑 Eliminar Producto")
+
+    if not inv.empty:
+
+        producto_eliminar = st.selectbox(
+            "Producto",
+            inv["producto"],
+            key="eliminar"
+        )
+
+        confirmar = st.checkbox(
+            "Estoy seguro de eliminar"
+        )
+
+        c1,c2 = st.columns([1,5])
+
+        with c1:
+
+            if st.button("Eliminar"):
+
+                if confirmar:
+
+                    eliminar_producto(
+                        producto_eliminar
+                    )
+
+                    st.success(
+                        "Producto eliminado"
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.warning(
+                        "Debes confirmar"
+                    )
 
 # =========================================================
 # VENTAS
@@ -704,21 +641,112 @@ with tab3:
 
 with tab4:
 
-    st.subheader("📑 Balance")
+    st.subheader("📑 Balance Financiero")
+
+    tipo_balance = st.radio(
+        "Ver balance por:",
+        ["Todo","Mes","Año"],
+        horizontal=True,
+        key="balance_radio"
+    )
+
+    ven_balance = ven.copy()
+    gas_balance = gas.copy()
+
+    if not ven_balance.empty:
+        ven_balance["fecha"] = pd.to_datetime(
+            ven_balance["fecha"]
+        )
+
+    if not gas_balance.empty:
+        gas_balance["fecha"] = pd.to_datetime(
+            gas_balance["fecha"]
+        )
+
+    if tipo_balance == "Mes":
+
+        meses = [
+            "Enero","Febrero","Marzo",
+            "Abril","Mayo","Junio",
+            "Julio","Agosto","Septiembre",
+            "Octubre","Noviembre","Diciembre"
+        ]
+
+        c1,c2 = st.columns(2)
+
+        with c1:
+
+            mes = st.selectbox(
+                "Mes",
+                range(1,13),
+                format_func=lambda x:
+                meses[x-1],
+                key="mes_balance"
+            )
+
+        with c2:
+
+            anio = st.selectbox(
+                "Año",
+                sorted(
+                    ven_balance["fecha"]
+                    .dt.year.unique()
+                ) if not ven_balance.empty else
+                [datetime.now().year],
+                key="anio_balance"
+            )
+
+        if not ven_balance.empty:
+
+            ven_balance = ven_balance[
+                (ven_balance["fecha"].dt.month == mes) &
+                (ven_balance["fecha"].dt.year == anio)
+            ]
+
+        if not gas_balance.empty:
+
+            gas_balance = gas_balance[
+                (gas_balance["fecha"].dt.month == mes) &
+                (gas_balance["fecha"].dt.year == anio)
+            ]
+
+    elif tipo_balance == "Año":
+
+        anio = st.selectbox(
+            "Año",
+            sorted(
+                ven_balance["fecha"]
+                .dt.year.unique()
+            ) if not ven_balance.empty else
+            [datetime.now().year],
+            key="anio_balance_only"
+        )
+
+        if not ven_balance.empty:
+
+            ven_balance = ven_balance[
+                ven_balance["fecha"].dt.year == anio
+            ]
+
+        if not gas_balance.empty:
+
+            gas_balance = gas_balance[
+                gas_balance["fecha"].dt.year == anio
+            ]
 
     ventas_total = (
-        ven["venta_ref"].sum()
-        if not ven.empty else 0
+        ven_balance["venta_ref"].sum()
+        if not ven_balance.empty else 0
     )
 
     ganancias = (
-        ven["ganancia"].sum()
-        if not ven.empty else 0
+        ven_balance["ganancia"].sum()
+        if not ven_balance.empty else 0
     )
 
     gastos_total = (
-        gas["monto"].sum()
-        if not gas.empty else 0
+        gas_balance["monto"].sum()
+        if not gas_balance.empty else 0
     )
 
     utilidad = ganancias - gastos_total
@@ -778,29 +806,116 @@ with tab4:
     )
 
 # =========================================================
-# DASHBOARD PRO
+# DASHBOARD
 # =========================================================
 
 with tab5:
 
     st.subheader("📈 Dashboard Ejecutivo")
 
+    tipo_dashboard = st.radio(
+        "Ver dashboard por:",
+        ["Todo","Mes","Año"],
+        horizontal=True
+    )
+
+    ven_dash = ven.copy()
+    gas_dash = gas.copy()
+
+    if not ven_dash.empty:
+        ven_dash["fecha"] = pd.to_datetime(
+            ven_dash["fecha"]
+        )
+
+    if not gas_dash.empty:
+        gas_dash["fecha"] = pd.to_datetime(
+            gas_dash["fecha"]
+        )
+
+    if tipo_dashboard == "Mes":
+
+        meses = [
+            "Enero","Febrero","Marzo",
+            "Abril","Mayo","Junio",
+            "Julio","Agosto","Septiembre",
+            "Octubre","Noviembre","Diciembre"
+        ]
+
+        c1,c2 = st.columns(2)
+
+        with c1:
+
+            mes = st.selectbox(
+                "Mes",
+                range(1,13),
+                format_func=lambda x:
+                meses[x-1]
+            )
+
+        with c2:
+
+            anio = st.selectbox(
+                "Año",
+                sorted(
+                    ven_dash["fecha"]
+                    .dt.year.unique()
+                ) if not ven_dash.empty else
+                [datetime.now().year]
+            )
+
+        if not ven_dash.empty:
+
+            ven_dash = ven_dash[
+                (ven_dash["fecha"].dt.month == mes) &
+                (ven_dash["fecha"].dt.year == anio)
+            ]
+
+        if not gas_dash.empty:
+
+            gas_dash = gas_dash[
+                (gas_dash["fecha"].dt.month == mes) &
+                (gas_dash["fecha"].dt.year == anio)
+            ]
+
+    elif tipo_dashboard == "Año":
+
+        anio = st.selectbox(
+            "Año",
+            sorted(
+                ven_dash["fecha"]
+                .dt.year.unique()
+            ) if not ven_dash.empty else
+            [datetime.now().year]
+        )
+
+        if not ven_dash.empty:
+
+            ven_dash = ven_dash[
+                ven_dash["fecha"].dt.year == anio
+            ]
+
+        if not gas_dash.empty:
+
+            gas_dash = gas_dash[
+                gas_dash["fecha"].dt.year == anio
+            ]
+
     ventas_total = (
-        ven["venta_ref"].sum()
-        if not ven.empty else 0
+        ven_dash["venta_ref"].sum()
+        if not ven_dash.empty else 0
     )
 
     utilidad = (
-        ven["ganancia"].sum()
-        if not ven.empty else 0
+        ven_dash["ganancia"].sum()
+        if not ven_dash.empty else 0
     ) - (
-        gas["monto"].sum()
-        if not gas.empty else 0
+        gas_dash["monto"].sum()
+        if not gas_dash.empty else 0
     )
 
     productos_vendidos = (
-        ven["cantidad"].sum()
-        if not ven.empty else 0
+        ven_dash["cantidad"].sum()
+        if not ven_dash.empty else 0
     )
 
     stock_total = (
@@ -832,11 +947,7 @@ with tab5:
 
     st.divider()
 
-    # =====================================================
-    # GRAFICO BARRAS
-    # =====================================================
-
-    if not ven.empty:
+    if not ven_dash.empty:
 
         st.subheader(
             "📊 Ganancia por Producto"
@@ -844,7 +955,7 @@ with tab5:
 
         fig1 = px.bar(
 
-            ven.groupby("producto")[
+            ven_dash.groupby("producto")[
                 "ganancia"
             ].sum().reset_index(),
 
@@ -866,11 +977,7 @@ with tab5:
             use_container_width=True
         )
 
-    # =====================================================
-    # GRAFICO PASTEL
-    # =====================================================
-
-    if not ven.empty:
+    if not ven_dash.empty:
 
         st.subheader(
             "🥧 Participación de Ventas"
@@ -878,7 +985,7 @@ with tab5:
 
         pie = px.pie(
 
-            ven.groupby("producto")[
+            ven_dash.groupby("producto")[
                 "cantidad"
             ].sum().reset_index(),
 
@@ -898,15 +1005,7 @@ with tab5:
             use_container_width=True
         )
 
-    # =====================================================
-    # LINEA
-    # =====================================================
-
-    if not ven.empty:
-
-        ven["fecha"] = pd.to_datetime(
-            ven["fecha"]
-        )
+    if not ven_dash.empty:
 
         st.subheader(
             "📈 Evolución de Ganancias"
@@ -914,7 +1013,7 @@ with tab5:
 
         linea = px.line(
 
-            ven.groupby("fecha")[
+            ven_dash.groupby("fecha")[
                 "ganancia"
             ].sum().reset_index(),
 
@@ -933,10 +1032,6 @@ with tab5:
             linea,
             use_container_width=True
         )
-
-    # =====================================================
-    # STOCK
-    # =====================================================
 
     if not inv.empty:
 

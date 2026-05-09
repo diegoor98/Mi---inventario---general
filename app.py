@@ -360,6 +360,63 @@ def eliminar_producto(producto):
     conn.commit()
 
 # =========================================================
+
+def eliminar_venta(id_venta):
+
+    cursor.execute("""
+    SELECT producto,cantidad
+    FROM ventas
+    WHERE id=?
+    """,(id_venta,))
+
+    venta = cursor.fetchone()
+
+    if venta:
+
+        producto,cantidad = venta
+
+        cursor.execute("""
+        UPDATE inventario
+        SET stock = stock + ?
+        WHERE producto=?
+        """,(cantidad,producto))
+
+        cursor.execute("""
+        DELETE FROM ventas
+        WHERE id=?
+        """,(id_venta,))
+
+        conn.commit()
+
+# =========================================================
+
+def eliminar_gasto(id_gasto):
+
+    cursor.execute("""
+    DELETE FROM gastos
+    WHERE id=?
+    """,(id_gasto,))
+
+    conn.commit()
+
+# =========================================================
+
+def deshacer_ultima_venta():
+
+    cursor.execute("""
+    SELECT id
+    FROM ventas
+    ORDER BY id DESC
+    LIMIT 1
+    """)
+
+    ultima = cursor.fetchone()
+
+    if ultima:
+
+        eliminar_venta(ultima[0])
+
+# =========================================================
 # DATOS
 # =========================================================
 
@@ -483,10 +540,6 @@ with tab1:
         use_container_width=True
     )
 
-    # =====================================================
-    # ELIMINAR
-    # =====================================================
-
     st.subheader("🗑 Eliminar Producto")
 
     if not inv.empty:
@@ -583,6 +636,61 @@ with tab2:
 
                     st.error(msg)
 
+    st.divider()
+
+    st.subheader("↩ Retroceder Venta")
+
+    c1,c2 = st.columns([1,5])
+
+    with c1:
+
+        if st.button("Deshacer"):
+
+            deshacer_ultima_venta()
+
+            st.success(
+                "Última venta eliminada"
+            )
+
+            st.rerun()
+
+    st.subheader("🗑 Eliminar Venta")
+
+    if not ven.empty:
+
+        id_venta = st.selectbox(
+            "ID Venta",
+            ven["id"]
+        )
+
+        confirmar = st.checkbox(
+            "Confirmar eliminación venta"
+        )
+
+        c1,c2 = st.columns([1,5])
+
+        with c1:
+
+            if st.button("Eliminar Venta"):
+
+                if confirmar:
+
+                    eliminar_venta(id_venta)
+
+                    st.success(
+                        "Venta eliminada"
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.warning(
+                        "Debes confirmar"
+                    )
+
+    st.divider()
+
     st.dataframe(
         ven,
         use_container_width=True
@@ -630,6 +738,45 @@ with tab3:
 
             st.rerun()
 
+    st.divider()
+
+    st.subheader("🗑 Eliminar Gasto")
+
+    if not gas.empty:
+
+        id_gasto = st.selectbox(
+            "ID Gasto",
+            gas["id"]
+        )
+
+        confirmar_gasto = st.checkbox(
+            "Confirmar eliminación gasto"
+        )
+
+        c1,c2 = st.columns([1,5])
+
+        with c1:
+
+            if st.button("Eliminar Gasto"):
+
+                if confirmar_gasto:
+
+                    eliminar_gasto(id_gasto)
+
+                    st.success(
+                        "Gasto eliminado"
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.warning(
+                        "Debes confirmar"
+                    )
+
+    st.divider()
+
     st.dataframe(
         gas,
         use_container_width=True
@@ -646,8 +793,7 @@ with tab4:
     tipo_balance = st.radio(
         "Ver balance por:",
         ["Todo","Mes","Año"],
-        horizontal=True,
-        key="balance_radio"
+        horizontal=True
     )
 
     ven_balance = ven.copy()
@@ -665,12 +811,20 @@ with tab4:
 
     if tipo_balance == "Mes":
 
-        meses = [
-            "Enero","Febrero","Marzo",
-            "Abril","Mayo","Junio",
-            "Julio","Agosto","Septiembre",
-            "Octubre","Noviembre","Diciembre"
-        ]
+        meses = {
+            1:"Enero",
+            2:"Febrero",
+            3:"Marzo",
+            4:"Abril",
+            5:"Mayo",
+            6:"Junio",
+            7:"Julio",
+            8:"Agosto",
+            9:"Septiembre",
+            10:"Octubre",
+            11:"Noviembre",
+            12:"Diciembre"
+        }
 
         c1,c2 = st.columns(2)
 
@@ -678,10 +832,8 @@ with tab4:
 
             mes = st.selectbox(
                 "Mes",
-                range(1,13),
-                format_func=lambda x:
-                meses[x-1],
-                key="mes_balance"
+                list(meses.keys()),
+                format_func=lambda x: meses[x]
             )
 
         with c2:
@@ -691,9 +843,8 @@ with tab4:
                 sorted(
                     ven_balance["fecha"]
                     .dt.year.unique()
-                ) if not ven_balance.empty else
-                [datetime.now().year],
-                key="anio_balance"
+                ) if not ven_balance.empty
+                else [datetime.now().year]
             )
 
         if not ven_balance.empty:
@@ -717,9 +868,8 @@ with tab4:
             sorted(
                 ven_balance["fecha"]
                 .dt.year.unique()
-            ) if not ven_balance.empty else
-            [datetime.now().year],
-            key="anio_balance_only"
+            ) if not ven_balance.empty
+            else [datetime.now().year]
         )
 
         if not ven_balance.empty:
@@ -820,47 +970,48 @@ with tab5:
     )
 
     ven_dash = ven.copy()
-    gas_dash = gas.copy()
 
     if not ven_dash.empty:
         ven_dash["fecha"] = pd.to_datetime(
             ven_dash["fecha"]
         )
 
-    if not gas_dash.empty:
-        gas_dash["fecha"] = pd.to_datetime(
-            gas_dash["fecha"]
-        )
-
     if tipo_dashboard == "Mes":
 
-        meses = [
-            "Enero","Febrero","Marzo",
-            "Abril","Mayo","Junio",
-            "Julio","Agosto","Septiembre",
-            "Octubre","Noviembre","Diciembre"
-        ]
+        meses = {
+            1:"Enero",
+            2:"Febrero",
+            3:"Marzo",
+            4:"Abril",
+            5:"Mayo",
+            6:"Junio",
+            7:"Julio",
+            8:"Agosto",
+            9:"Septiembre",
+            10:"Octubre",
+            11:"Noviembre",
+            12:"Diciembre"
+        }
 
         c1,c2 = st.columns(2)
 
         with c1:
 
             mes = st.selectbox(
-                "Mes",
-                range(1,13),
-                format_func=lambda x:
-                meses[x-1]
+                "Mes Dashboard",
+                list(meses.keys()),
+                format_func=lambda x: meses[x]
             )
 
         with c2:
 
             anio = st.selectbox(
-                "Año",
+                "Año Dashboard",
                 sorted(
                     ven_dash["fecha"]
                     .dt.year.unique()
-                ) if not ven_dash.empty else
-                [datetime.now().year]
+                ) if not ven_dash.empty
+                else [datetime.now().year]
             )
 
         if not ven_dash.empty:
@@ -870,22 +1021,15 @@ with tab5:
                 (ven_dash["fecha"].dt.year == anio)
             ]
 
-        if not gas_dash.empty:
-
-            gas_dash = gas_dash[
-                (gas_dash["fecha"].dt.month == mes) &
-                (gas_dash["fecha"].dt.year == anio)
-            ]
-
     elif tipo_dashboard == "Año":
 
         anio = st.selectbox(
-            "Año",
+            "Año Dashboard",
             sorted(
                 ven_dash["fecha"]
                 .dt.year.unique()
-            ) if not ven_dash.empty else
-            [datetime.now().year]
+            ) if not ven_dash.empty
+            else [datetime.now().year]
         )
 
         if not ven_dash.empty:
@@ -894,67 +1038,9 @@ with tab5:
                 ven_dash["fecha"].dt.year == anio
             ]
 
-        if not gas_dash.empty:
-
-            gas_dash = gas_dash[
-                gas_dash["fecha"].dt.year == anio
-            ]
-
-    ventas_total = (
-        ven_dash["venta_ref"].sum()
-        if not ven_dash.empty else 0
-    )
-
-    utilidad = (
-        ven_dash["ganancia"].sum()
-        if not ven_dash.empty else 0
-    ) - (
-        gas_dash["monto"].sum()
-        if not gas_dash.empty else 0
-    )
-
-    productos_vendidos = (
-        ven_dash["cantidad"].sum()
-        if not ven_dash.empty else 0
-    )
-
-    stock_total = (
-        inv["stock"].sum()
-        if not inv.empty else 0
-    )
-
-    c1,c2,c3,c4 = st.columns(4)
-
-    c1.metric(
-        "💰 Ventas",
-        f"S/ {ventas_total:,.2f}"
-    )
-
-    c2.metric(
-        "📈 Utilidad",
-        f"S/ {utilidad:,.2f}"
-    )
-
-    c3.metric(
-        "🛒 Vendidos",
-        productos_vendidos
-    )
-
-    c4.metric(
-        "📦 Stock",
-        stock_total
-    )
-
-    st.divider()
-
     if not ven_dash.empty:
 
-        st.subheader(
-            "📊 Ganancia por Producto"
-        )
-
         fig1 = px.bar(
-
             ven_dash.groupby("producto")[
                 "ganancia"
             ].sum().reset_index(),
@@ -977,14 +1063,7 @@ with tab5:
             use_container_width=True
         )
 
-    if not ven_dash.empty:
-
-        st.subheader(
-            "🥧 Participación de Ventas"
-        )
-
         pie = px.pie(
-
             ven_dash.groupby("producto")[
                 "cantidad"
             ].sum().reset_index(),
@@ -997,7 +1076,7 @@ with tab5:
             template="plotly_dark",
 
             color_discrete_sequence=
-            px.colors.qualitative.Bold
+            px.colors.qualitative.Vivid
         )
 
         st.plotly_chart(
@@ -1005,27 +1084,16 @@ with tab5:
             use_container_width=True
         )
 
-    if not ven_dash.empty:
-
-        st.subheader(
-            "📈 Evolución de Ganancias"
-        )
+        ventas_fecha = ven_dash.groupby(
+            "fecha"
+        )["ganancia"].sum().reset_index()
 
         linea = px.line(
-
-            ven_dash.groupby("fecha")[
-                "ganancia"
-            ].sum().reset_index(),
-
+            ventas_fecha,
             x="fecha",
             y="ganancia",
-
             markers=True,
-
-            template="plotly_dark",
-
-            color_discrete_sequence=
-            px.colors.qualitative.Bold
+            template="plotly_dark"
         )
 
         st.plotly_chart(
@@ -1033,33 +1101,21 @@ with tab5:
             use_container_width=True
         )
 
-    if not inv.empty:
+        top = ven_dash.groupby(
+            "producto"
+        )["cantidad"].sum().reset_index()
+
+        top = top.sort_values(
+            by="cantidad",
+            ascending=False
+        )
 
         st.subheader(
-            "📦 Stock Actual"
+            "🏆 Top Productos"
         )
 
-        stock_fig = px.bar(
-
-            inv,
-
-            x="stock",
-            y="producto",
-
-            orientation="h",
-
-            color="producto",
-
-            text_auto=True,
-
-            template="plotly_dark",
-
-            color_discrete_sequence=
-            px.colors.qualitative.Bold
-        )
-
-        st.plotly_chart(
-            stock_fig,
+        st.dataframe(
+            top,
             use_container_width=True
         )
 

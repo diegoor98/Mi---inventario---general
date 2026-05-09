@@ -615,7 +615,7 @@ with tab1:
         st.info(f"Modo seleccionado: {modo}")
 
         # =====================================================
-        # VARIABLES BASE
+        # VARIABLES
         # =====================================================
 
         producto_final = ""
@@ -638,7 +638,6 @@ with tab1:
                     inv["producto"] == producto_final
                 ].iloc[0]
 
-                # SOLO categoría se autocompleta
                 categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
 
             else:
@@ -657,14 +656,26 @@ with tab1:
             )
 
         # =====================================================
-        # CAMPOS
+        # CATEGORIA (CORREGIDA)
         # =====================================================
 
-        categoria = st.text_input(
-            "Categoria",
-            value=categoria0,
-            key=f"cat_{producto_final}"
-        )
+        if modo == "Existente" and producto_final:
+
+            categoria = st.text_input(
+                "Categoria",
+                value=categoria0,
+                disabled=True
+            )
+
+        else:
+
+            categoria = st.text_input(
+                "Categoria"
+            )
+
+        # =====================================================
+        # CAMPOS ECONÓMICOS
+        # =====================================================
 
         c1, c2, c3 = st.columns(3)
 
@@ -675,7 +686,6 @@ with tab1:
             )
 
         with c2:
-            # ❌ NO autocompletar costo
             costo = st.number_input(
                 "Costo",
                 min_value=0.0,
@@ -683,12 +693,15 @@ with tab1:
             )
 
         with c3:
-            # ❌ NO autocompletar venta
             venta = st.number_input(
                 "Venta",
                 min_value=0.0,
                 value=0.0
             )
+
+        # =====================================================
+        # GUARDAR
+        # =====================================================
 
         guardar = st.form_submit_button("Guardar")
 
@@ -706,7 +719,7 @@ with tab1:
             st.rerun()
 
     # =====================================================
-    # TABLA INVENTARIO
+    # TABLA
     # =====================================================
 
     st.dataframe(
@@ -743,8 +756,7 @@ with tab1:
                     st.rerun()
 
                 else:
-                    st.warning("Debes confirmar")
-        
+                    st.warning("Debes confirmar")      
                     
 # =========================================================
 # VENTAS

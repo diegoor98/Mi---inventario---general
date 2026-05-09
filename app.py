@@ -416,6 +416,26 @@ def deshacer_ultima_venta():
     if ultima: 
 
         eliminar_venta(ultima[0]) 
+# =========================================================
+# LIMPIAR ERP
+# =========================================================
+
+def limpiar_erp():
+
+cursor.execute(
+"DELETE FROM inventario"
+)
+
+cursor.execute(
+"DELETE FROM ventas"
+)
+
+cursor.execute(
+"DELETE FROM gastos"
+)
+
+conn.commit()
+        
 
 # =========================================================
 # DATOS

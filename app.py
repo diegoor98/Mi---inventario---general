@@ -211,19 +211,11 @@ def registrar_venta(
 
         _, _, _, stock, costo, precio_venta = datos
 
-        # =================================================
-        # VALIDAR STOCK
-        # =================================================
-
         if stock <= 0:
             return False, "❌ Producto sin stock"
 
         if cantidad > stock:
             return False, f"❌ Stock insuficiente. Disponible: {stock}"
-
-        # =================================================
-        # ACTUALIZAR STOCK
-        # =================================================
 
         nuevo_stock = stock - cantidad
 
@@ -239,10 +231,6 @@ def registrar_venta(
             nuevo_stock,
             producto
         ))
-
-        # =================================================
-        # REGISTRAR VENTA
-        # =================================================
 
         cursor.execute("""
         INSERT INTO ventas
@@ -436,29 +424,17 @@ with tab1:
 
         st.dataframe(filtro)
 
-    # =====================================================
-    # RADIO FUERA DEL FORM
-    # =====================================================
-
     modo = st.radio(
         "Modo",
         ["Existente", "Nuevo"],
         horizontal=True
     )
 
-    # =====================================================
-    # FORM
-    # =====================================================
-
     with st.form("inventario_form"):
 
         categoria0 = ""
         costo0 = 0.0
         venta0 = 0.0
-
-        # =================================================
-        # EXISTENTE
-        # =================================================
 
         if modo == "Existente" and not inv.empty:
 
@@ -477,10 +453,6 @@ with tab1:
             categoria0 = d["categoria"]
             costo0 = d["costo"]
             venta0 = d["venta"]
-
-        # =================================================
-        # NUEVO
-        # =================================================
 
         else:
 
@@ -658,19 +630,11 @@ with tab2:
 
     st.subheader("Ventas")
 
-    # =============================================
-    # SESSION STATE MENSAJES
-    # =============================================
-
     if "mensaje_venta" not in st.session_state:
         st.session_state.mensaje_venta = ""
 
     if "tipo_venta" not in st.session_state:
         st.session_state.tipo_venta = ""
-
-    # =============================================
-    # MOSTRAR MENSAJE
-    # =============================================
 
     if st.session_state.mensaje_venta != "":
 
@@ -686,10 +650,6 @@ with tab2:
             st.session_state.tipo_venta = ""
 
             st.rerun()
-
-    # =============================================
-    # FORM VENTAS
-    # =============================================
 
     if not inv.empty:
 
@@ -798,9 +758,7 @@ with tab3:
 
 with tab4:
 
-    st.subheader(
-        "Balance General"
-    )
+    st.subheader("📑 Balance General")
 
     ventas_total = (
         ven["venta_ref"].sum()
@@ -819,26 +777,159 @@ with tab4:
 
     utilidad = ganancias - gastos_total
 
-    col1, col2, col3, col4 = st.columns(4)
+    total_productos = (
+        len(inv)
+        if not inv.empty else 0
+    )
 
-    col1.metric(
-        "Ventas",
+    stock_total = (
+        inv["stock"].sum()
+        if not inv.empty else 0
+    )
+
+    costo_stock_total = (
+        (inv["stock"] * inv["costo"]).sum()
+        if not inv.empty else 0
+    )
+
+    inversion_inventario = (
+        (inv["stock"] * inv["costo"]).sum()
+        if not inv.empty else 0
+    )
+
+    valor_venta_inventario = (
+        (inv["stock"] * inv["venta"]).sum()
+        if not inv.empty else 0
+    )
+
+    productos_bajo_stock = (
+        len(inv[inv["stock"] < 5])
+        if not inv.empty else 0
+    )
+
+    total_ventas_realizadas = (
+        len(ven)
+        if not ven.empty else 0
+    )
+
+    ticket_promedio = (
+        ventas_total / total_ventas_realizadas
+        if total_ventas_realizadas > 0 else 0
+    )
+
+    margen = (
+        (ganancias / ventas_total) * 100
+        if ventas_total > 0 else 0
+    )
+
+    # =====================================================
+    # FILA 1
+    # =====================================================
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "💰 Ventas",
         f"S/ {ventas_total:,.2f}"
     )
 
-    col2.metric(
-        "Ganancia",
+    c2.metric(
+        "📈 Ganancias",
         f"S/ {ganancias:,.2f}"
     )
 
-    col3.metric(
-        "Gastos",
+    c3.metric(
+        "💸 Gastos",
         f"S/ {gastos_total:,.2f}"
     )
 
-    col4.metric(
-        "Utilidad",
+    c4.metric(
+        "🏆 Utilidad Neta",
         f"S/ {utilidad:,.2f}"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # FILA 2
+    # =====================================================
+
+    c5, c6, c7, c8, c9 = st.columns(5)
+
+    c5.metric(
+        "📦 Productos",
+        total_productos
+    )
+
+    c6.metric(
+        "🧮 Stock Total",
+        stock_total
+    )
+
+    c7.metric(
+        "⚠ Bajo Stock",
+        productos_bajo_stock
+    )
+
+    c8.metric(
+        "🛒 Ventas Realizadas",
+        total_ventas_realizadas
+    )
+
+    c9.metric(
+        "💵 Costo Total Stock",
+        f"S/ {costo_stock_total:,.2f}"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # FILA 3
+    # =====================================================
+
+    c10, c11, c12 = st.columns(3)
+
+    c10.metric(
+        "🏭 Valor Inventario (Costo)",
+        f"S/ {inversion_inventario:,.2f}"
+    )
+
+    c11.metric(
+        "🏪 Valor Inventario (Venta)",
+        f"S/ {valor_venta_inventario:,.2f}"
+    )
+
+    c12.metric(
+        "📊 Margen",
+        f"{margen:.2f}%"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # FILA 4
+    # =====================================================
+
+    c13, c14 = st.columns(2)
+
+    c13.metric(
+        "🧾 Ticket Promedio",
+        f"S/ {ticket_promedio:,.2f}"
+    )
+
+    producto_top = "-"
+
+    if not ven.empty:
+
+        top = ven.groupby("producto")[
+            "cantidad"
+        ].sum().idxmax()
+
+        producto_top = top
+
+    c14.metric(
+        "🔥 Producto Más Vendido",
+        producto_top
     )
 
 # =========================================================

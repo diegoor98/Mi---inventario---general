@@ -416,16 +416,20 @@ with tab1:
         st.dataframe(filtro)
 
     # =====================================================
-    # FORM INVENTARIO
+    # RADIO FUERA DEL FORM
+    # =====================================================
+
+    modo = st.radio(
+        "Modo",
+        ["Existente", "Nuevo"],
+        horizontal=True
+    )
+
+    # =====================================================
+    # FORM
     # =====================================================
 
     with st.form("inventario_form"):
-
-        modo = st.radio(
-            "Modo",
-            ["Existente", "Nuevo"],
-            horizontal=True
-        )
 
         categoria0 = ""
         costo0 = 0.0
@@ -461,15 +465,10 @@ with tab1:
 
             producto_nuevo = st.text_input(
                 "Nuevo Producto",
-                value="",
                 key="producto_nuevo"
             )
 
             producto = producto_nuevo
-
-            categoria0 = ""
-            costo0 = 0.0
-            venta0 = 0.0
 
         categoria = st.text_input(
             "Categoria",
@@ -502,7 +501,11 @@ with tab1:
                 value=float(venta0)
             )
 
-        if st.form_submit_button("Guardar"):
+        guardar_btn = st.form_submit_button(
+            "Guardar"
+        )
+
+        if guardar_btn:
 
             ok, msg = guardar_producto(
                 producto,
@@ -515,7 +518,6 @@ with tab1:
             if ok:
 
                 st.success(msg)
-
                 st.rerun()
 
             else:
@@ -597,40 +599,16 @@ with tab1:
             key="eliminar_producto"
         )
 
-        st.markdown(
-            f"""
-            <div style="
-                background:#161B22;
-                padding:12px;
-                border-radius:10px;
-                border:1px solid #30363D;
-                margin-bottom:10px;
-            ">
-            ⚠ Está a punto de eliminar:
-            <b>{pe}</b>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
         confirmar = st.checkbox(
-            "Sí, estoy seguro de eliminar este producto"
+            "Sí, deseo eliminar este producto"
         )
 
-        col1, col2, col3 = st.columns([1,1,5])
+        col1, col2 = st.columns([1,5])
 
         with col1:
 
             eliminar_btn = st.button(
-                "Eliminar",
-                key="btn_eliminar"
-            )
-
-        with col2:
-
-            cancelar_btn = st.button(
-                "Cancelar",
-                key="btn_cancelar"
+                "Eliminar"
             )
 
         if eliminar_btn:
@@ -640,7 +618,7 @@ with tab1:
                 eliminar_producto(pe)
 
                 st.success(
-                    f"{pe} eliminado correctamente"
+                    f"{pe} eliminado"
                 )
 
                 st.rerun()
@@ -648,14 +626,8 @@ with tab1:
             else:
 
                 st.warning(
-                    "Debe confirmar la eliminación"
+                    "Debe confirmar"
                 )
-
-        if cancelar_btn:
-
-            st.info(
-                "Operación cancelada"
-            )
 
 # =========================================================
 # VENTAS
@@ -685,7 +657,11 @@ with tab2:
                 datetime.now()
             )
 
-            if st.form_submit_button("Vender"):
+            vender_btn = st.form_submit_button(
+                "Vender"
+            )
+
+            if vender_btn:
 
                 ok, msg = registrar_venta(
                     str(fecha),
@@ -696,7 +672,6 @@ with tab2:
                 if ok:
 
                     st.success(msg)
-
                     st.rerun()
 
                 else:
@@ -731,7 +706,11 @@ with tab3:
             datetime.now()
         )
 
-        if st.form_submit_button("Guardar"):
+        guardar_gasto = st.form_submit_button(
+            "Guardar"
+        )
+
+        if guardar_gasto:
 
             registrar_gasto(
                 str(fecha),

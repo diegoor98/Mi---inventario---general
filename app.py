@@ -187,7 +187,7 @@ def guardar_producto(
 
     conn.commit()
 
-    return True, "Producto guardado"
+    return True, "✅ Producto guardado"
 
 # =========================================================
 
@@ -197,51 +197,72 @@ def registrar_venta(
     cantidad
 ):
 
-    cursor.execute(
-        "SELECT * FROM inventario WHERE producto=?",
-        (producto,)
-    )
+    try:
 
-    datos = cursor.fetchone()
+        cursor.execute(
+            "SELECT * FROM inventario WHERE producto=?",
+            (producto,)
+        )
 
-    if not datos:
-        return False, "Producto no existe"
+        datos = cursor.fetchone()
 
-    _, _, _, stock, costo, precio_venta = datos
+        if not datos:
+            return False, "❌ Producto no existe"
 
-    if cantidad > stock:
-        return False, "Stock insuficiente"
+        _, _, _, stock, costo, precio_venta = datos
 
-    nuevo_stock = stock - cantidad
+        # =================================================
+        # VALIDAR STOCK
+        # =================================================
 
-    ganancia = cantidad * (
-        precio_venta - costo
-    )
+        if stock <= 0:
+            return False, "❌ Producto sin stock"
 
-    cursor.execute("""
-    UPDATE inventario
-    SET stock=?
-    WHERE producto=?
-    """, (
-        nuevo_stock,
-        producto
-    ))
+        if cantidad > stock:
+            return False, f"❌ Stock insuficiente. Disponible: {stock}"
 
-    cursor.execute("""
-    INSERT INTO ventas
-    VALUES (NULL,?,?,?,?,?,?)
-    """, (
-        fecha,
-        producto,
-        cantidad,
-        costo,
-        precio_venta,
-        ganancia
-    ))
+        # =================================================
+        # ACTUALIZAR STOCK
+        # =================================================
 
-    conn.commit()
+        nuevo_stock = stock - cantidad
 
-    return True, "Venta registrada"
+        ganancia = cantidad * (
+            precio_venta - costo
+        )
+
+        cursor.execute("""
+        UPDATE inventario
+        SET stock=?
+        WHERE producto=?
+        """, (
+            nuevo_stock,
+            producto
+        ))
+
+        # =================================================
+        # REGISTRAR VENTA
+        # =================================================
+
+        cursor.execute("""
+        INSERT INTO ventas
+        VALUES (NULL,?,?,?,?,?,?)
+        """, (
+            fecha,
+            producto,
+            cantidad,
+            costo,
+            precio_venta,
+            ganancia
+        ))
+
+        conn.commit()
+
+        return True, "✅ Venta registrada"
+
+    except Exception as e:
+
+        return False, f"❌ Error: {e}"
 
 # =========================================================
 
@@ -574,7 +595,7 @@ with tab1:
                 conn.commit()
 
                 st.success(
-                    "Stock actualizado"
+                    "✅ Stock actualizado"
                 )
 
                 st.rerun()
@@ -582,7 +603,7 @@ with tab1:
             else:
 
                 st.error(
-                    "Cantidad mayor al stock"
+                    "❌ Cantidad mayor al stock"
                 )
 
     # =====================================================
@@ -618,7 +639,7 @@ with tab1:
                 eliminar_producto(pe)
 
                 st.success(
-                    f"{pe} eliminado"
+                    f"✅ {pe} eliminado"
                 )
 
                 st.rerun()
@@ -626,7 +647,7 @@ with tab1:
             else:
 
                 st.warning(
-                    "Debe confirmar"
+                    "⚠ Debe confirmar"
                 )
 
 # =========================================================
@@ -637,6 +658,39 @@ with tab2:
 
     st.subheader("Ventas")
 
+    # =============================================
+    # SESSION STATE MENSAJES
+    # =============================================
+
+    if "mensaje_venta" not in st.session_state:
+        st.session_state.mensaje_venta = ""
+
+    if "tipo_venta" not in st.session_state:
+        st.session_state.tipo_venta = ""
+
+    # =============================================
+    # MOSTRAR MENSAJE
+    # =============================================
+
+    if st.session_state.mensaje_venta != "":
+
+        if st.session_state.tipo_venta == "ok":
+            st.success(st.session_state.mensaje_venta)
+
+        else:
+            st.error(st.session_state.mensaje_venta)
+
+        if st.button("OK"):
+
+            st.session_state.mensaje_venta = ""
+            st.session_state.tipo_venta = ""
+
+            st.rerun()
+
+    # =============================================
+    # FORM VENTAS
+    # =============================================
+
     if not inv.empty:
 
         with st.form("ventas_form"):
@@ -644,6 +698,16 @@ with tab2:
             producto = st.selectbox(
                 "Producto",
                 inv["producto"]
+            )
+
+            stock_actual = int(
+                inv[
+                    inv["producto"] == producto
+                ]["stock"].values[0]
+            )
+
+            st.info(
+                f"Stock disponible: {stock_actual}"
             )
 
             cantidad = st.number_input(
@@ -669,14 +733,14 @@ with tab2:
                     cantidad
                 )
 
+                st.session_state.mensaje_venta = msg
+
                 if ok:
-
-                    st.success(msg)
-                    st.rerun()
-
+                    st.session_state.tipo_venta = "ok"
                 else:
+                    st.session_state.tipo_venta = "error"
 
-                    st.error(msg)
+                st.rerun()
 
     st.divider()
 
@@ -719,7 +783,7 @@ with tab3:
             )
 
             st.success(
-                "Gasto registrado"
+                "✅ Gasto registrado"
             )
 
             st.rerun()

@@ -594,7 +594,7 @@ with tab1:
     with st.form("inventario_form"):
 
         # =====================================================
-        # FIX DEFINITIVO DEL MODO (SIN RADIO)
+        # CONTROL DE MODO
         # =====================================================
 
         if "modo_inv" not in st.session_state:
@@ -615,29 +615,40 @@ with tab1:
         st.info(f"Modo seleccionado: {modo}")
 
         # =====================================================
-        # LOGICA INVENTARIO
+        # VARIABLES BASE
         # =====================================================
 
         producto_final = ""
-
         categoria0 = ""
-        costo0 = 0.0
-        venta0 = 0.0
 
-        if modo == "Existente" and not inv.empty:
+        # =====================================================
+        # EXISTENTE
+        # =====================================================
 
-            producto_final = st.selectbox(
-                "Producto",
-                inv["producto"]
-            )
+        if modo == "Existente":
 
-            fila = inv[
-                inv["producto"] == producto_final
-            ].iloc[0]
+            if not inv.empty:
 
-            categoria0 = fila["categoria"]
-            costo0 = fila["costo"]
-            venta0 = fila["venta"]
+                producto_final = st.selectbox(
+                    "Selecciona producto existente",
+                    inv["producto"]
+                )
+
+                fila = inv[
+                    inv["producto"] == producto_final
+                ].iloc[0]
+
+                # SOLO categoría se autocompleta
+                categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
+
+            else:
+
+                st.warning("No hay productos en inventario")
+                producto_final = ""
+
+        # =====================================================
+        # NUEVO
+        # =====================================================
 
         else:
 
@@ -645,9 +656,14 @@ with tab1:
                 "Nuevo Producto"
             )
 
+        # =====================================================
+        # CAMPOS
+        # =====================================================
+
         categoria = st.text_input(
             "Categoria",
-            value=categoria0
+            value=categoria0,
+            key=f"cat_{producto_final}"
         )
 
         c1, c2, c3 = st.columns(3)
@@ -659,17 +675,19 @@ with tab1:
             )
 
         with c2:
+            # ❌ NO autocompletar costo
             costo = st.number_input(
                 "Costo",
                 min_value=0.0,
-                value=float(costo0)
+                value=0.0
             )
 
         with c3:
+            # ❌ NO autocompletar venta
             venta = st.number_input(
                 "Venta",
                 min_value=0.0,
-                value=float(venta0)
+                value=0.0
             )
 
         guardar = st.form_submit_button("Guardar")
@@ -687,10 +705,18 @@ with tab1:
             st.success("Producto guardado")
             st.rerun()
 
+    # =====================================================
+    # TABLA INVENTARIO
+    # =====================================================
+
     st.dataframe(
         inv,
         use_container_width=True
     )
+
+    # =====================================================
+    # ELIMINAR
+    # =====================================================
 
     st.subheader("🗑 Eliminar Producto")
 
@@ -718,6 +744,7 @@ with tab1:
 
                 else:
                     st.warning("Debes confirmar")
+        
                     
 # =========================================================
 # VENTAS

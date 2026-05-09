@@ -200,6 +200,123 @@ monto REAL
 """) 
 
 conn.commit() 
+# =========================================================
+# IMPORTAR BACKUP ERP
+# =========================================================
+
+st.sidebar.header("📂 Importar Backup ERP")
+
+file = st.sidebar.file_uploader(
+"Subir Excel",
+type=["xlsx"]
+)
+
+if file:
+
+try:
+
+xls = pd.ExcelFile(file)
+
+# =================================================
+# INVENTARIO
+# =================================================
+
+if "Inventario" in xls.sheet_names:
+
+df_inv = pd.read_excel(
+xls,
+"Inventario"
+)
+
+cursor.execute(
+"DELETE FROM inventario"
+)
+
+for _,r in df_inv.iterrows():
+
+cursor.execute("""
+INSERT INTO inventario
+VALUES(?,?,?,?,?,?)
+""",(
+int(r["id"]),
+str(r["producto"]),
+str(r["categoria"]),
+int(r["stock"]),
+float(r["costo"]),
+float(r["venta"])
+))
+
+# =================================================
+# VENTAS
+# =================================================
+
+if "Ventas" in xls.sheet_names:
+
+df_ven = pd.read_excel(
+xls,
+"Ventas"
+)
+
+cursor.execute(
+"DELETE FROM ventas"
+)
+
+for _,r in df_ven.iterrows():
+
+cursor.execute("""
+INSERT INTO ventas
+VALUES(?,?,?,?,?,?,?)
+""",(
+int(r["id"]),
+str(r["fecha"]),
+str(r["producto"]),
+int(r["cantidad"]),
+float(r["costo_ref"]),
+float(r["venta_ref"]),
+float(r["ganancia"])
+))
+
+# =================================================
+# GASTOS
+# =================================================
+
+if "Gastos" in xls.sheet_names:
+
+df_gas = pd.read_excel(
+xls,
+"Gastos"
+)
+
+cursor.execute(
+"DELETE FROM gastos"
+)
+
+for _,r in df_gas.iterrows():
+
+cursor.execute("""
+INSERT INTO gastos
+VALUES(?,?,?,?)
+""",(
+int(r["id"]),
+str(r["fecha"]),
+str(r["concepto"]),
+float(r["monto"])
+))
+
+conn.commit()
+
+st.sidebar.success(
+"Backup restaurado correctamente"
+)
+
+st.rerun()
+
+except Exception as e:
+
+st.sidebar.error(
+f"Error: {e}"
+)
+
 
 # =========================================================
 # FUNCIONES

@@ -582,146 +582,143 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 "📈 Dashboard",
 "💾 Exportar"
 ]) 
-
+        
 # =========================================================
 # INVENTARIO
-# ========================================================= 
+# =========================================================
 
-with tab1: 
+with tab1:
 
-    st.subheader("📦 Inventario") 
+    st.subheader("📦 Inventario")
 
-    with st.form("inventario_form"): 
+    with st.form("inventario_form"):
 
-        # ✅ FIX: mantener estado del radio
+        # =====================================================
+        # FIX DEFINITIVO DEL MODO (SIN RADIO)
+        # =====================================================
+
         if "modo_inv" not in st.session_state:
             st.session_state.modo_inv = "Existente"
 
-        modo = st.radio(
-            "Modo",
-            ["Existente","Nuevo"],
-            horizontal=True,
-            key="modo_inv"
-        ) 
+        c1, c2 = st.columns(2)
 
-        producto_final = "" 
+        with c1:
+            if st.form_submit_button("📌 Existente"):
+                st.session_state.modo_inv = "Existente"
+
+        with c2:
+            if st.form_submit_button("➕ Nuevo"):
+                st.session_state.modo_inv = "Nuevo"
+
+        modo = st.session_state.modo_inv
+
+        st.info(f"Modo seleccionado: {modo}")
+
+        # =====================================================
+        # LOGICA INVENTARIO
+        # =====================================================
+
+        producto_final = ""
 
         categoria0 = ""
         costo0 = 0.0
-        venta0 = 0.0 
+        venta0 = 0.0
 
-        if modo == "Existente" and not inv.empty: 
+        if modo == "Existente" and not inv.empty:
 
             producto_final = st.selectbox(
-            "Producto",
-            inv["producto"]
-            ) 
+                "Producto",
+                inv["producto"]
+            )
 
             fila = inv[
-            inv["producto"] == producto_final
-            ].iloc[0] 
+                inv["producto"] == producto_final
+            ].iloc[0]
 
             categoria0 = fila["categoria"]
             costo0 = fila["costo"]
-            venta0 = fila["venta"] 
+            venta0 = fila["venta"]
 
-        else: 
+        else:
 
             producto_final = st.text_input(
-            "Nuevo Producto"
-            ) 
+                "Nuevo Producto"
+            )
 
         categoria = st.text_input(
-        "Categoria",
-        value=categoria0
-        ) 
+            "Categoria",
+            value=categoria0
+        )
 
-        c1,c2,c3 = st.columns(3) 
+        c1, c2, c3 = st.columns(3)
 
         with c1:
             stock = st.number_input(
-            "Stock",
-            min_value=0
-            ) 
+                "Stock",
+                min_value=0
+            )
 
         with c2:
             costo = st.number_input(
-            "Costo",
-            min_value=0.0,
-            value=float(costo0)
-            ) 
+                "Costo",
+                min_value=0.0,
+                value=float(costo0)
+            )
 
         with c3:
             venta = st.number_input(
-            "Venta",
-            min_value=0.0,
-            value=float(venta0)
-            ) 
+                "Venta",
+                min_value=0.0,
+                value=float(venta0)
+            )
 
-        guardar = st.form_submit_button(
-        "Guardar"
-        ) 
+        guardar = st.form_submit_button("Guardar")
 
-        if guardar: 
+        if guardar:
 
             guardar_producto(
-            producto_final.title(),
-            categoria,
-            stock,
-            costo,
-            venta
-            ) 
+                producto_final.title(),
+                categoria,
+                stock,
+                costo,
+                venta
+            )
 
-            st.success(
-            "Producto guardado"
-            ) 
-
-            st.rerun() 
+            st.success("Producto guardado")
+            st.rerun()
 
     st.dataframe(
-    inv,
-    use_container_width=True
-    ) 
+        inv,
+        use_container_width=True
+    )
 
-    st.subheader("🗑 Eliminar Producto") 
+    st.subheader("🗑 Eliminar Producto")
 
-    if not inv.empty: 
+    if not inv.empty:
 
         producto_eliminar = st.selectbox(
-        "Producto",
-        inv["producto"],
-        key="eliminar"
-        ) 
+            "Producto",
+            inv["producto"],
+            key="eliminar"
+        )
 
-        confirmar = st.checkbox(
-        "Estoy seguro de eliminar"
-        ) 
+        confirmar = st.checkbox("Estoy seguro de eliminar")
 
-        c1,c2 = st.columns([1,5]) 
+        c1, c2 = st.columns([1, 5])
 
-        with c1: 
+        with c1:
+            if st.button("Eliminar"):
 
-            if st.button("Eliminar"): 
+                if confirmar:
 
-                if confirmar: 
+                    eliminar_producto(producto_eliminar)
 
-                    eliminar_producto(
-                    producto_eliminar
-                    ) 
+                    st.success("Producto eliminado")
+                    st.rerun()
 
-                    st.success(
-                    "Producto eliminado"
-                    ) 
-
-                    st.rerun() 
-
-                else: 
-
-                    st.warning(
-                    "Debes confirmar"
-                    )
+                else:
+                    st.warning("Debes confirmar")
                     
-
 # =========================================================
 # VENTAS
 # ========================================================= 

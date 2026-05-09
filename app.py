@@ -4,14 +4,13 @@ import plotly.express as px
 from io import BytesIO
 from datetime import datetime
 import sqlite3
-import openpyxl
 
 # =========================================================
-# CONFIGURACIÓN
+# CONFIG
 # =========================================================
 
 st.set_page_config(
-    page_title="Tulip S.A. ERP",
+    page_title="Tulip ERP",
     page_icon="🌷",
     layout="wide"
 )
@@ -22,50 +21,79 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.main {background-color: #0E1117;}
-h1,h2,h3{color:white;}
-.stMetric{background-color:#161B22;padding:15px;border-radius:12px;border:1px solid #30363D;}
-div.stButton > button{background:#FF4B91;color:white;border-radius:10px;padding:10px;font-weight:bold;}
-div.stButton > button:hover{background:#FF2E7A;}
+
+.main {
+    background-color: #0E1117;
+}
+
+h1,h2,h3,h4 {
+    color:white;
+}
+
+[data-testid="stMetric"]{
+    background:#161B22;
+    border:1px solid #30363D;
+    padding:20px;
+    border-radius:15px;
+    box-shadow:0 0 10px rgba(0,0,0,0.3);
+}
+
+div.stButton > button{
+    background:#FF4B91;
+    color:white;
+    border-radius:10px;
+    padding:10px;
+    font-weight:bold;
+    border:none;
+}
+
+div.stButton > button:hover{
+    background:#FF2E7A;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# BASE DE DATOS
+# DATABASE
 # =========================================================
 
 conn = sqlite3.connect("tulip_erp.db", check_same_thread=False)
 cursor = conn.cursor()
 
+# =========================================================
+# TABLAS
+# =========================================================
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-producto TEXT UNIQUE,
-categoria TEXT,
-stock INTEGER,
-costo REAL,
-venta REAL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto TEXT UNIQUE,
+    categoria TEXT,
+    stock INTEGER,
+    costo REAL,
+    venta REAL
 )
 """)
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS ventas (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-fecha TEXT,
-producto TEXT,
-cantidad INTEGER,
-costo_ref REAL,
-venta_ref REAL,
-ganancia REAL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT,
+    producto TEXT,
+    cantidad INTEGER,
+    costo_ref REAL,
+    venta_ref REAL,
+    ganancia REAL
 )
 """)
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS gastos (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-fecha TEXT,
-concepto TEXT,
-monto REAL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT,
+    concepto TEXT,
+    monto REAL
 )
 """)
 
@@ -75,108 +103,263 @@ conn.commit()
 # FUNCIONES
 # =========================================================
 
-def cargar():
-    return (
-        pd.read_sql("SELECT * FROM inventario", conn),
-        pd.read_sql("SELECT * FROM ventas", conn),
-        pd.read_sql("SELECT * FROM gastos", conn)
+def cargar_datos():
+
+    inventario = pd.read_sql(
+        "SELECT * FROM inventario",
+        conn
     )
 
-def guardar_producto(p,c,s,co,v):
-    cursor.execute("SELECT * FROM inventario WHERE producto=?", (p,))
-    ex = cursor.fetchone()
+    ventas = pd.read_sql(
+        "SELECT * FROM ventas",
+        conn
+    )
 
-    if ex:
-        nuevo = ex[3] + s
+    gastos = pd.read_sql(
+        "SELECT * FROM gastos",
+        conn
+    )
+
+    return inventario, ventas, gastos
+
+# =========================================================
+
+def guardar_producto(
+    producto,
+    categoria,
+    stock,
+    costo,
+    precio_venta
+):
+
+    if not producto.strip():
+        return False, "Ingrese producto"
+
+    cursor.execute(
+        "SELECT * FROM inventario WHERE producto=?",
+        (producto,)
+    )
+
+    existente = cursor.fetchone()
+
+    if existente:
+
+        nuevo_stock = existente[3] + stock
+
         cursor.execute("""
-        UPDATE inventario SET categoria=?, stock=?, costo=?, venta=?
+        UPDATE inventario
+        SET categoria=?,
+            stock=?,
+            costo=?,
+            venta=?
         WHERE producto=?
-        """,(c,nuevo,co,v,p))
+        """, (
+            categoria,
+            nuevo_stock,
+            costo,
+            precio_venta,
+            producto
+        ))
+
     else:
+
         cursor.execute("""
-        INSERT INTO inventario VALUES (NULL,?,?,?,?,?)
-        """,(p,c,s,co,v))
+        INSERT INTO inventario
+        VALUES (NULL,?,?,?,?,?)
+        """, (
+            producto,
+            categoria,
+            stock,
+            costo,
+            precio_venta
+        ))
 
     conn.commit()
 
-def venta(fecha,producto,cant):
+    return True, "Guardado"
 
-    cursor.execute("SELECT * FROM inventario WHERE producto=?",(producto,))
-    d = cursor.fetchone()
+# =========================================================
 
-    if not d:
-        return False,"No existe"
+def registrar_venta(
+    fecha,
+    producto,
+    cantidad
+):
 
-    _,_,_,stock,costo,venta = d
+    cursor.execute(
+        "SELECT * FROM inventario WHERE producto=?",
+        (producto,)
+    )
 
-    if cant>stock:
-        return False,"Stock insuficiente"
+    datos = cursor.fetchone()
 
-    nuevo = stock-cant
-    gan = cant*(venta-costo)
+    if not datos:
+        return False, "Producto no existe"
 
-    cursor.execute("UPDATE inventario SET stock=? WHERE producto=?",(nuevo,producto))
+    _, _, _, stock, costo, precio_venta = datos
+
+    if cantidad > stock:
+        return False, "Stock insuficiente"
+
+    nuevo_stock = stock - cantidad
+
+    ganancia = cantidad * (precio_venta - costo)
 
     cursor.execute("""
-    INSERT INTO ventas VALUES (NULL,?,?,?,?,?,?)
-    """,(fecha,producto,cant,costo,venta,gan))
+    UPDATE inventario
+    SET stock=?
+    WHERE producto=?
+    """, (
+        nuevo_stock,
+        producto
+    ))
+
+    cursor.execute("""
+    INSERT INTO ventas
+    VALUES (NULL,?,?,?,?,?,?)
+    """, (
+        fecha,
+        producto,
+        cantidad,
+        costo,
+        precio_venta,
+        ganancia
+    ))
 
     conn.commit()
-    return True,"OK"
 
-def gasto(fecha,concepto,monto):
+    return True, "Venta registrada"
+
+# =========================================================
+
+def registrar_gasto(
+    fecha,
+    concepto,
+    monto
+):
+
     cursor.execute("""
-    INSERT INTO gastos VALUES (NULL,?,?,?)
-    """,(fecha,concepto,monto))
+    INSERT INTO gastos
+    VALUES (NULL,?,?,?)
+    """, (
+        fecha,
+        concepto,
+        monto
+    ))
+
     conn.commit()
 
 # =========================================================
-# DATOS
+
+def eliminar_producto(producto):
+
+    cursor.execute("""
+    DELETE FROM inventario
+    WHERE producto=?
+    """, (producto,))
+
+    conn.commit()
+
+# =========================================================
+# CARGAR DATOS
 # =========================================================
 
-inv, ven, gas = cargar()
+inv, ven, gas = cargar_datos()
 
 # =========================================================
 # IMPORTAR EXCEL
 # =========================================================
 
 st.sidebar.header("📂 Importar Excel")
-file = st.sidebar.file_uploader("Subir", type=["xlsx"])
 
-if file:
-    df = pd.read_excel(file)
-    df.columns = [c.lower() for c in df.columns]
+archivo = st.sidebar.file_uploader(
+    "Subir archivo",
+    type=["xlsx"]
+)
 
-    for _,r in df.iterrows():
-        guardar_producto(
-            str(r.get("producto","")).title(),
-            str(r.get("categoria","")),
-            int(r.get("stock",0)),
-            float(r.get("costo",0)),
-            float(r.get("venta",0))
+if archivo:
+
+    try:
+
+        df = pd.read_excel(archivo)
+
+        df.columns = [c.lower() for c in df.columns]
+
+        columnas = [
+            "producto",
+            "categoria",
+            "stock",
+            "costo",
+            "venta"
+        ]
+
+        if not all(c in df.columns for c in columnas):
+
+            st.sidebar.error("Columnas inválidas")
+
+        else:
+
+            for _, r in df.iterrows():
+
+                guardar_producto(
+                    str(r["producto"]).title(),
+                    str(r["categoria"]),
+                    int(r["stock"]),
+                    float(r["costo"]),
+                    float(r["venta"])
+                )
+
+            st.sidebar.success("Importado correctamente")
+
+            st.rerun()
+
+    except Exception as e:
+
+        st.sidebar.error(f"Error: {e}")
+
+# =========================================================
+# TITULO
+# =========================================================
+
+st.markdown("""
+<h1 style='text-align:center;'>
+🌷 Tulip ERP
+</h1>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# RECARGAR DATOS
+# =========================================================
+
+inv, ven, gas = cargar_datos()
+
+# =========================================================
+# STOCK BAJO
+# =========================================================
+
+if not inv.empty:
+
+    bajo = inv[inv["stock"] < 5]
+
+    if not bajo.empty:
+
+        st.warning("⚠ Productos con stock bajo")
+
+        st.dataframe(
+            bajo[["producto", "stock"]]
         )
-
-    st.sidebar.success("Importado")
-
-# =========================================================
-# TÍTULO
-# =========================================================
-
-st.markdown("<h1 style='text-align:center;'>🌷 Tulip ERP</h1>", unsafe_allow_html=True)
-
-inv, ven, gas = cargar()
 
 # =========================================================
 # TABS
 # =========================================================
 
-tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
-"📦 Inventario",
-"🛒 Ventas",
-"💸 Gastos",
-"📑 Balance",
-"📈 Dashboard",
-"💾 Exportar"
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📦 Inventario",
+    "🛒 Ventas",
+    "💸 Gastos",
+    "📑 Balance",
+    "📈 Dashboard",
+    "💾 Exportar"
 ])
 
 # =========================================================
@@ -187,59 +370,174 @@ with tab1:
 
     st.subheader("Inventario")
 
-    with st.form("f"):
+    buscar = st.text_input("🔍 Buscar producto")
 
-        modo = st.radio("Modo",["Existente","Nuevo"],horizontal=True)
+    if buscar:
 
-        prod=""
-        c0=v0=co0=0.0
+        filtro = inv[
+            inv["producto"]
+            .str.contains(buscar, case=False)
+        ]
 
-        if modo=="Existente" and not inv.empty:
-            prod=st.selectbox("Producto",inv["producto"])
-            d=inv[inv["producto"]==prod].iloc[0]
-            c0=d["categoria"]
-            co0=d["costo"]
-            v0=d["venta"]
+        st.dataframe(filtro)
+
+    with st.form("inventario_form"):
+
+        modo = st.radio(
+            "Modo",
+            ["Existente", "Nuevo"],
+            horizontal=True
+        )
+
+        producto = ""
+
+        categoria0 = ""
+        costo0 = 0.0
+        venta0 = 0.0
+
+        if modo == "Existente" and not inv.empty:
+
+            producto = st.selectbox(
+                "Producto",
+                inv["producto"]
+            )
+
+            d = inv[
+                inv["producto"] == producto
+            ].iloc[0]
+
+            categoria0 = d["categoria"]
+            costo0 = d["costo"]
+            venta0 = d["venta"]
 
         else:
-            prod=st.text_input("Producto")
 
-        cat=st.text_input("Categoria",value=c0)
+            producto = st.text_input("Producto")
 
-        col1,col2,col3=st.columns(3)
+        categoria = st.text_input(
+            "Categoria",
+            value=categoria0
+        )
+
+        col1, col2, col3 = st.columns(3)
 
         with col1:
-            stock=st.number_input("Stock",0)
+
+            stock = st.number_input(
+                "Stock",
+                min_value=0,
+                step=1
+            )
 
         with col2:
-            costo=st.number_input("Costo",value=co0)
+
+            costo = st.number_input(
+                "Costo",
+                min_value=0.0,
+                value=float(costo0)
+            )
 
         with col3:
-            venta=st.number_input("Venta",value=v0)
+
+            precio_venta = st.number_input(
+                "Venta",
+                min_value=0.0,
+                value=float(venta0)
+            )
 
         if st.form_submit_button("Guardar"):
-            guardar_producto(prod,cat,stock,costo,venta)
-            st.rerun()
+
+            ok, msg = guardar_producto(
+                producto,
+                categoria,
+                stock,
+                costo,
+                precio_venta
+            )
+
+            if ok:
+                st.success(msg)
+                st.rerun()
+
+            else:
+                st.error(msg)
+
+    st.divider()
 
     st.dataframe(inv)
 
-    st.subheader("➖ Descontar")
+    # =====================================================
+    # DESCONTAR STOCK
+    # =====================================================
+
+    st.subheader("➖ Descontar Stock")
 
     if not inv.empty:
 
-        p=st.selectbox("Producto",inv["producto"],key="x")
-        s=int(inv[inv["producto"]==p]["stock"].values[0])
+        p = st.selectbox(
+            "Producto",
+            inv["producto"],
+            key="descontar"
+        )
 
-        st.info(f"Stock {s}")
+        stock_actual = int(
+            inv[
+                inv["producto"] == p
+            ]["stock"].values[0]
+        )
 
-        c=st.number_input("Cantidad",1)
+        st.info(f"Stock actual: {stock_actual}")
+
+        cantidad = st.number_input(
+            "Cantidad",
+            min_value=1,
+            step=1
+        )
 
         if st.button("Quitar"):
 
-            if c<=s:
-                cursor.execute("UPDATE inventario SET stock=? WHERE producto=?",(s-c,p))
+            if cantidad <= stock_actual:
+
+                cursor.execute("""
+                UPDATE inventario
+                SET stock=?
+                WHERE producto=?
+                """, (
+                    stock_actual - cantidad,
+                    p
+                ))
+
                 conn.commit()
+
+                st.success("Stock actualizado")
+
                 st.rerun()
+
+            else:
+
+                st.error("Cantidad mayor al stock")
+
+    # =====================================================
+    # ELIMINAR
+    # =====================================================
+
+    st.subheader("🗑 Eliminar Producto")
+
+    if not inv.empty:
+
+        pe = st.selectbox(
+            "Seleccionar",
+            inv["producto"],
+            key="eliminar"
+        )
+
+        if st.button("Eliminar Producto"):
+
+            eliminar_producto(pe)
+
+            st.success("Producto eliminado")
+
+            st.rerun()
 
 # =========================================================
 # VENTAS
@@ -251,16 +549,43 @@ with tab2:
 
     if not inv.empty:
 
-        with st.form("v"):
+        with st.form("ventas_form"):
 
-            p=st.selectbox("Producto",inv["producto"])
-            c=st.number_input("Cantidad",1)
-            f=st.date_input("Fecha",datetime.now())
+            producto = st.selectbox(
+                "Producto",
+                inv["producto"]
+            )
+
+            cantidad = st.number_input(
+                "Cantidad",
+                min_value=1,
+                step=1
+            )
+
+            fecha = st.date_input(
+                "Fecha",
+                datetime.now()
+            )
 
             if st.form_submit_button("Vender"):
-                ok,msg=venta(str(f),p,c)
-                st.success(msg) if ok else st.error(msg)
-                if ok: st.rerun()
+
+                ok, msg = registrar_venta(
+                    str(fecha),
+                    producto,
+                    cantidad
+                )
+
+                if ok:
+
+                    st.success(msg)
+
+                    st.rerun()
+
+                else:
+
+                    st.error(msg)
+
+    st.divider()
 
     st.dataframe(ven)
 
@@ -272,15 +597,33 @@ with tab3:
 
     st.subheader("Gastos")
 
-    with st.form("g"):
+    with st.form("gastos_form"):
 
-        c=st.text_input("Concepto")
-        m=st.number_input("Monto",0.0)
-        f=st.date_input("Fecha",datetime.now())
+        concepto = st.text_input("Concepto")
+
+        monto = st.number_input(
+            "Monto",
+            min_value=0.0
+        )
+
+        fecha = st.date_input(
+            "Fecha",
+            datetime.now()
+        )
 
         if st.form_submit_button("Guardar"):
-            gasto(str(f),c,m)
+
+            registrar_gasto(
+                str(fecha),
+                concepto,
+                monto
+            )
+
+            st.success("Gasto registrado")
+
             st.rerun()
+
+    st.divider()
 
     st.dataframe(gas)
 
@@ -290,10 +633,31 @@ with tab3:
 
 with tab4:
 
-    st.subheader("Balance")
+    st.subheader("Balance General")
 
-    st.metric("Ventas",ven["ganancia"].sum() if not ven.empty else 0)
-    st.metric("Gastos",gas["monto"].sum() if not gas.empty else 0)
+    ventas_total = (
+        ven["venta_ref"].sum()
+        if not ven.empty else 0
+    )
+
+    ganancias = (
+        ven["ganancia"].sum()
+        if not ven.empty else 0
+    )
+
+    gastos_total = (
+        gas["monto"].sum()
+        if not gas.empty else 0
+    )
+
+    utilidad = ganancias - gastos_total
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Ventas", f"S/ {ventas_total:,.2f}")
+    col2.metric("Ganancia", f"S/ {ganancias:,.2f}")
+    col3.metric("Gastos", f"S/ {gastos_total:,.2f}")
+    col4.metric("Utilidad", f"S/ {utilidad:,.2f}")
 
 # =========================================================
 # DASHBOARD
@@ -304,9 +668,40 @@ with tab5:
     st.subheader("Dashboard")
 
     if not ven.empty:
-        fig=px.bar(ven.groupby("producto")["ganancia"].sum().reset_index(),
-        x="producto",y="ganancia")
-        st.plotly_chart(fig)
+
+        # GANANCIAS
+
+        fig1 = px.bar(
+            ven.groupby("producto")["ganancia"]
+            .sum()
+            .reset_index(),
+            x="producto",
+            y="ganancia",
+            title="Ganancia por Producto"
+        )
+
+        st.plotly_chart(
+            fig1,
+            use_container_width=True
+        )
+
+        # VENTAS
+
+        ventas_fecha = ven.groupby(
+            "fecha"
+        )["ganancia"].sum().reset_index()
+
+        fig2 = px.line(
+            ventas_fecha,
+            x="fecha",
+            y="ganancia",
+            title="Ganancias por Fecha"
+        )
+
+        st.plotly_chart(
+            fig2,
+            use_container_width=True
+        )
 
 # =========================================================
 # EXPORTAR
@@ -314,13 +709,35 @@ with tab5:
 
 with tab6:
 
-    st.subheader("Exportar")
+    st.subheader("Exportar Excel")
 
-    output=BytesIO()
+    output = BytesIO()
 
-    with pd.ExcelWriter(output,engine="xlsxwriter") as w:
-        inv.to_excel(w,index=False,sheet_name="Inv")
-        ven.to_excel(w,index=False,sheet_name="Ven")
-        gas.to_excel(w,index=False,sheet_name="Gas")
+    with pd.ExcelWriter(
+        output,
+        engine="xlsxwriter"
+    ) as writer:
 
-    st.download_button("Descargar",output.getvalue(),"erp.xlsx")
+        inv.to_excel(
+            writer,
+            index=False,
+            sheet_name="Inventario"
+        )
+
+        ven.to_excel(
+            writer,
+            index=False,
+            sheet_name="Ventas"
+        )
+
+        gas.to_excel(
+            writer,
+            index=False,
+            sheet_name="Gastos"
+        )
+
+    st.download_button(
+        "📥 Descargar ERP",
+        output.getvalue(),
+        file_name="tulip_erp.xlsx"
+    )

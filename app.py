@@ -26,26 +26,24 @@ st.markdown("""
     background-color:#0E1117;
 }
 
-h1,h2,h3,h4{
+h1,h2,h3{
     color:white;
 }
 
-[data-testid="stMetric"]{
+.stMetric{
     background:#161B22;
-    border:1px solid #30363D;
-    padding:20px;
+    padding:15px;
     border-radius:15px;
-    box-shadow:0 0 10px rgba(0,0,0,0.3);
+    border:1px solid #30363D;
 }
 
 div.stButton > button{
     background:#FF4B91;
     color:white;
     border:none;
-    border-radius:8px;
-    padding:6px 14px;
-    font-size:14px;
-    font-weight:600;
+    border-radius:10px;
+    padding:10px 18px;
+    font-weight:bold;
 }
 
 div.stButton > button:hover{
@@ -71,7 +69,7 @@ cursor = conn.cursor()
 # =========================================================
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS inventario (
+CREATE TABLE IF NOT EXISTS inventario(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     producto TEXT UNIQUE,
     categoria TEXT,
@@ -82,7 +80,7 @@ CREATE TABLE IF NOT EXISTS inventario (
 """)
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS ventas (
+CREATE TABLE IF NOT EXISTS ventas(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT,
     producto TEXT,
@@ -94,7 +92,7 @@ CREATE TABLE IF NOT EXISTS ventas (
 """)
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS gastos (
+CREATE TABLE IF NOT EXISTS gastos(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT,
     concepto TEXT,
@@ -134,22 +132,19 @@ def guardar_producto(
     categoria,
     stock,
     costo,
-    precio_venta
+    venta
 ):
-
-    if not producto.strip():
-        return False, "Ingrese producto"
 
     cursor.execute(
         "SELECT * FROM inventario WHERE producto=?",
         (producto,)
     )
 
-    existente = cursor.fetchone()
+    existe = cursor.fetchone()
 
-    if existente:
+    if existe:
 
-        nuevo_stock = existente[3] + stock
+        nuevo_stock = existe[3] + stock
 
         cursor.execute("""
         UPDATE inventario
@@ -158,11 +153,11 @@ def guardar_producto(
             costo=?,
             venta=?
         WHERE producto=?
-        """, (
+        """,(
             categoria,
             nuevo_stock,
             costo,
-            precio_venta,
+            venta,
             producto
         ))
 
@@ -170,18 +165,16 @@ def guardar_producto(
 
         cursor.execute("""
         INSERT INTO inventario
-        VALUES (NULL,?,?,?,?,?)
-        """, (
+        VALUES(NULL,?,?,?,?,?)
+        """,(
             producto,
             categoria,
             stock,
             costo,
-            precio_venta
+            venta
         ))
 
     conn.commit()
-
-    return True, "✅ Producto guardado"
 
 # =========================================================
 
@@ -191,60 +184,49 @@ def registrar_venta(
     cantidad
 ):
 
-    try:
+    cursor.execute(
+        "SELECT * FROM inventario WHERE producto=?",
+        (producto,)
+    )
 
-        cursor.execute(
-            "SELECT * FROM inventario WHERE producto=?",
-            (producto,)
-        )
+    dato = cursor.fetchone()
 
-        datos = cursor.fetchone()
+    if not dato:
+        return False, "Producto no existe"
 
-        if not datos:
-            return False, "❌ Producto no existe"
+    _,_,_,stock,costo,venta = dato
 
-        _, _, _, stock, costo, precio_venta = datos
+    if cantidad > stock:
+        return False, "Stock insuficiente"
 
-        if stock <= 0:
-            return False, "❌ Producto sin stock"
+    nuevo_stock = stock - cantidad
 
-        if cantidad > stock:
-            return False, f"❌ Stock insuficiente. Disponible: {stock}"
+    ganancia = cantidad * (venta - costo)
 
-        nuevo_stock = stock - cantidad
+    cursor.execute("""
+    UPDATE inventario
+    SET stock=?
+    WHERE producto=?
+    """,(
+        nuevo_stock,
+        producto
+    ))
 
-        ganancia = cantidad * (
-            precio_venta - costo
-        )
+    cursor.execute("""
+    INSERT INTO ventas
+    VALUES(NULL,?,?,?,?,?,?)
+    """,(
+        fecha,
+        producto,
+        cantidad,
+        costo,
+        venta,
+        ganancia
+    ))
 
-        cursor.execute("""
-        UPDATE inventario
-        SET stock=?
-        WHERE producto=?
-        """, (
-            nuevo_stock,
-            producto
-        ))
+    conn.commit()
 
-        cursor.execute("""
-        INSERT INTO ventas
-        VALUES (NULL,?,?,?,?,?,?)
-        """, (
-            fecha,
-            producto,
-            cantidad,
-            costo,
-            precio_venta,
-            ganancia
-        ))
-
-        conn.commit()
-
-        return True, "✅ Venta registrada"
-
-    except Exception as e:
-
-        return False, f"❌ Error: {e}"
+    return True, "Venta registrada"
 
 # =========================================================
 
@@ -256,8 +238,8 @@ def registrar_gasto(
 
     cursor.execute("""
     INSERT INTO gastos
-    VALUES (NULL,?,?,?)
-    """, (
+    VALUES(NULL,?,?,?)
+    """,(
         fecha,
         concepto,
         monto
@@ -269,10 +251,10 @@ def registrar_gasto(
 
 def eliminar_producto(producto):
 
-    cursor.execute("""
-    DELETE FROM inventario
-    WHERE producto=?
-    """, (producto,))
+    cursor.execute(
+        "DELETE FROM inventario WHERE producto=?",
+        (producto,)
+    )
 
     conn.commit()
 
@@ -317,9 +299,11 @@ with tab1:
         "🔍 Buscar producto"
     )
 
+    inv_filtrado = inv.copy()
+
     if buscar:
 
-        filtro = inv[
+        inv_filtrado = inv[
             inv["producto"]
             .str.contains(
                 buscar,
@@ -327,41 +311,40 @@ with tab1:
             )
         ]
 
-        st.dataframe(filtro)
-
-    modo = st.radio(
-        "Modo",
-        ["Existente", "Nuevo"],
-        horizontal=True
-    )
-
     with st.form("inventario_form"):
 
-        categoria0 = ""
-        costo0 = 0.0
-        venta0 = 0.0
+        modo = st.radio(
+            "Modo",
+            ["Existente","Nuevo"],
+            horizontal=True
+        )
+
+        producto = ""
+
+        categoria_default = ""
+        costo_default = 0.0
+        venta_default = 0.0
 
         # =================================================
         # EXISTENTE
         # =================================================
 
-        if modo == "Existente" and not inv.empty:
+        if modo == "Existente":
 
-            producto_existente = st.selectbox(
-                "Producto",
-                inv["producto"],
-                key="producto_existente"
-            )
+            if not inv.empty:
 
-            producto = producto_existente
+                producto = st.selectbox(
+                    "Producto",
+                    inv["producto"]
+                )
 
-            d = inv[
-                inv["producto"] == producto
-            ].iloc[0]
+                fila = inv[
+                    inv["producto"] == producto
+                ].iloc[0]
 
-            categoria0 = d["categoria"]
-            costo0 = d["costo"]
-            venta0 = d["venta"]
+                categoria_default = fila["categoria"]
+                costo_default = fila["costo"]
+                venta_default = fila["venta"]
 
         # =================================================
         # NUEVO
@@ -369,70 +352,114 @@ with tab1:
 
         else:
 
-            producto_nuevo = st.text_input(
-                "Nuevo Producto",
-                key="producto_nuevo"
+            producto = st.text_input(
+                "Nuevo Producto"
             )
-
-            producto = producto_nuevo
 
         categoria = st.text_input(
             "Categoria",
-            value=categoria0
+            value=categoria_default
         )
 
-        col1, col2, col3 = st.columns(3)
+        c1,c2,c3 = st.columns(3)
 
-        with col1:
-
+        with c1:
             stock = st.number_input(
                 "Stock",
-                min_value=0,
-                step=1
+                min_value=0
             )
 
-        with col2:
-
+        with c2:
             costo = st.number_input(
                 "Costo",
                 min_value=0.0,
-                value=float(costo0)
+                value=float(costo_default)
             )
 
-        with col3:
-
-            precio_venta = st.number_input(
+        with c3:
+            venta = st.number_input(
                 "Venta",
                 min_value=0.0,
-                value=float(venta0)
+                value=float(venta_default)
             )
 
-        guardar_btn = st.form_submit_button(
+        guardar = st.form_submit_button(
             "Guardar"
         )
 
-        if guardar_btn:
+        if guardar:
 
-            ok, msg = guardar_producto(
-                producto,
-                categoria,
-                stock,
-                costo,
-                precio_venta
-            )
+            if producto.strip() == "":
 
-            if ok:
-
-                st.success(msg)
-                st.rerun()
+                st.error(
+                    "Ingrese producto"
+                )
 
             else:
 
-                st.error(msg)
+                guardar_producto(
+                    producto.title(),
+                    categoria,
+                    stock,
+                    costo,
+                    venta
+                )
 
-    st.divider()
+                st.success(
+                    "Producto guardado"
+                )
 
-    st.dataframe(inv)
+                st.rerun()
+
+    st.dataframe(
+        inv_filtrado,
+        use_container_width=True
+    )
+
+    # =====================================================
+    # ELIMINAR PRODUCTO
+    # =====================================================
+
+    st.subheader("🗑 Eliminar Producto")
+
+    if not inv.empty:
+
+        producto_eliminar = st.selectbox(
+            "Seleccionar producto",
+            inv["producto"],
+            key="eliminar_producto"
+        )
+
+        confirmar = st.checkbox(
+            "Estoy seguro de eliminar"
+        )
+
+        c1,c2 = st.columns([1,5])
+
+        with c1:
+
+            if st.button(
+                "Eliminar",
+                key="btn_eliminar"
+            ):
+
+                if confirmar:
+
+                    eliminar_producto(
+                        producto_eliminar
+                    )
+
+                    st.success(
+                        "Producto eliminado"
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.warning(
+                        "Debes confirmar"
+                    )
 
 # =========================================================
 # VENTAS
@@ -441,26 +468,6 @@ with tab1:
 with tab2:
 
     st.subheader("Ventas")
-
-    if "mensaje_venta" not in st.session_state:
-        st.session_state.mensaje_venta = ""
-
-    if "tipo_venta" not in st.session_state:
-        st.session_state.tipo_venta = ""
-
-    if st.session_state.mensaje_venta != "":
-
-        if st.session_state.tipo_venta == "ok":
-            st.success(st.session_state.mensaje_venta)
-        else:
-            st.error(st.session_state.mensaje_venta)
-
-        if st.button("OK"):
-
-            st.session_state.mensaje_venta = ""
-            st.session_state.tipo_venta = ""
-
-            st.rerun()
 
     if not inv.empty:
 
@@ -471,20 +478,9 @@ with tab2:
                 inv["producto"]
             )
 
-            stock_actual = int(
-                inv[
-                    inv["producto"] == producto
-                ]["stock"].values[0]
-            )
-
-            st.info(
-                f"Stock disponible: {stock_actual}"
-            )
-
             cantidad = st.number_input(
                 "Cantidad",
-                min_value=1,
-                step=1
+                min_value=1
             )
 
             fecha = st.date_input(
@@ -492,30 +488,32 @@ with tab2:
                 datetime.now()
             )
 
-            vender_btn = st.form_submit_button(
+            vender = st.form_submit_button(
                 "Vender"
             )
 
-            if vender_btn:
+            if vender:
 
-                ok, msg = registrar_venta(
+                ok, mensaje = registrar_venta(
                     str(fecha),
                     producto,
                     cantidad
                 )
 
-                st.session_state.mensaje_venta = msg
-
                 if ok:
-                    st.session_state.tipo_venta = "ok"
+
+                    st.success(mensaje)
+
+                    st.rerun()
+
                 else:
-                    st.session_state.tipo_venta = "error"
 
-                st.rerun()
+                    st.error(mensaje)
 
-    st.divider()
-
-    st.dataframe(ven)
+    st.dataframe(
+        ven,
+        use_container_width=True
+    )
 
 # =========================================================
 # GASTOS
@@ -554,14 +552,15 @@ with tab3:
             )
 
             st.success(
-                "✅ Gasto registrado"
+                "Gasto registrado"
             )
 
             st.rerun()
 
-    st.divider()
-
-    st.dataframe(gas)
+    st.dataframe(
+        gas,
+        use_container_width=True
+    )
 
 # =========================================================
 # BALANCE
@@ -569,118 +568,43 @@ with tab3:
 
 with tab4:
 
-    st.subheader("📑 Balance General")
-
-    tipo_balance = st.radio(
-        "Ver balance por:",
-        ["Todo", "Mes", "Año"],
-        horizontal=True,
-        key="radio_balance"
-    )
-
-    ven_filtrado = ven.copy()
-    gas_filtrado = gas.copy()
-
-    if not ven.empty:
-        ven_filtrado["fecha"] = pd.to_datetime(
-            ven_filtrado["fecha"]
-        )
-
-    if not gas.empty:
-        gas_filtrado["fecha"] = pd.to_datetime(
-            gas_filtrado["fecha"]
-        )
-
-    if tipo_balance == "Mes":
-
-        meses = [
-            "Enero","Febrero","Marzo",
-            "Abril","Mayo","Junio",
-            "Julio","Agosto","Septiembre",
-            "Octubre","Noviembre","Diciembre"
-        ]
-
-        mes = st.selectbox(
-            "Mes",
-            range(1,13),
-            format_func=lambda x: meses[x-1],
-            key="mes_balance"
-        )
-
-        anio = st.selectbox(
-            "Año",
-            sorted(
-                ven_filtrado["fecha"]
-                .dt.year.unique()
-            ) if not ven_filtrado.empty else [datetime.now().year],
-            key="anio_balance"
-        )
-
-        if not ven_filtrado.empty:
-
-            ven_filtrado = ven_filtrado[
-                (ven_filtrado["fecha"].dt.month == mes) &
-                (ven_filtrado["fecha"].dt.year == anio)
-            ]
-
-        if not gas_filtrado.empty:
-
-            gas_filtrado = gas_filtrado[
-                (gas_filtrado["fecha"].dt.month == mes) &
-                (gas_filtrado["fecha"].dt.year == anio)
-            ]
-
-    elif tipo_balance == "Año":
-
-        anio = st.selectbox(
-            "Año",
-            sorted(
-                ven_filtrado["fecha"]
-                .dt.year.unique()
-            ) if not ven_filtrado.empty else [datetime.now().year],
-            key="anio_balance_only"
-        )
-
-        if not ven_filtrado.empty:
-
-            ven_filtrado = ven_filtrado[
-                ven_filtrado["fecha"].dt.year == anio
-            ]
-
-        if not gas_filtrado.empty:
-
-            gas_filtrado = gas_filtrado[
-                gas_filtrado["fecha"].dt.year == anio
-            ]
+    st.subheader("📑 Balance")
 
     ventas_total = (
-        ven_filtrado["venta_ref"].sum()
-        if not ven_filtrado.empty else 0
+        ven["venta_ref"].sum()
+        if not ven.empty else 0
     )
 
-    ganancias = (
-        ven_filtrado["ganancia"].sum()
-        if not ven_filtrado.empty else 0
+    ganancias_total = (
+        ven["ganancia"].sum()
+        if not ven.empty else 0
     )
 
     gastos_total = (
-        gas_filtrado["monto"].sum()
-        if not gas_filtrado.empty else 0
+        gas["monto"].sum()
+        if not gas.empty else 0
     )
 
-    utilidad = ganancias - gastos_total
+    utilidad_neta = (
+        ganancias_total - gastos_total
+    )
 
-    valor_inventario_costo = (
+    stock_total = (
+        inv["stock"].sum()
+        if not inv.empty else 0
+    )
+
+    inventario_costo = (
         (inv["stock"] * inv["costo"]).sum()
         if not inv.empty else 0
     )
 
-    valor_inventario_venta = (
+    inventario_venta = (
         (inv["stock"] * inv["venta"]).sum()
         if not inv.empty else 0
     )
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1,c2,c3,c4 = st.columns(4)
 
     c1.metric(
         "💰 Ventas",
@@ -689,7 +613,7 @@ with tab4:
 
     c2.metric(
         "📈 Ganancias",
-        f"S/ {ganancias:,.2f}"
+        f"S/ {ganancias_total:,.2f}"
     )
 
     c3.metric(
@@ -698,22 +622,25 @@ with tab4:
     )
 
     c4.metric(
-        "🏆 Utilidad",
-        f"S/ {utilidad:,.2f}"
+        "🏦 Utilidad Neta",
+        f"S/ {utilidad_neta:,.2f}"
     )
 
-    st.divider()
-
-    c5, c6 = st.columns(2)
+    c5,c6,c7 = st.columns(3)
 
     c5.metric(
-        "🏭 Valor Inventario Costo",
-        f"S/ {valor_inventario_costo:,.2f}"
+        "📦 Stock Total",
+        stock_total
     )
 
     c6.metric(
+        "🏭 Inventario Costo",
+        f"S/ {inventario_costo:,.2f}"
+    )
+
+    c7.metric(
         "🏪 Inventario Valorizado",
-        f"S/ {valor_inventario_venta:,.2f}"
+        f"S/ {inventario_venta:,.2f}"
     )
 
 # =========================================================
@@ -722,81 +649,131 @@ with tab4:
 
 with tab5:
 
-    st.subheader("📈 Dashboard")
+    st.subheader("📈 Dashboard Ejecutivo")
 
-    tipo_dashboard = st.radio(
-        "Ver dashboard por:",
-        ["Todo", "Mes", "Año"],
-        horizontal=True,
-        key="radio_dashboard"
+    # =====================================================
+    # KPIs
+    # =====================================================
+
+    ventas_total = (
+        ven["venta_ref"].sum()
+        if not ven.empty else 0
     )
 
-    ven_dash = ven.copy()
+    ganancias_total = (
+        ven["ganancia"].sum()
+        if not ven.empty else 0
+    )
 
-    if not ven_dash.empty:
+    gastos_total = (
+        gas["monto"].sum()
+        if not gas.empty else 0
+    )
 
-        ven_dash["fecha"] = pd.to_datetime(
-            ven_dash["fecha"]
-        )
+    utilidad_neta = (
+        ganancias_total - gastos_total
+    )
 
-    if tipo_dashboard == "Mes":
+    productos_vendidos = (
+        ven["cantidad"].sum()
+        if not ven.empty else 0
+    )
 
-        meses = [
-            "Enero","Febrero","Marzo",
-            "Abril","Mayo","Junio",
-            "Julio","Agosto","Septiembre",
-            "Octubre","Noviembre","Diciembre"
-        ]
+    stock_total = (
+        inv["stock"].sum()
+        if not inv.empty else 0
+    )
 
-        mes_dash = st.selectbox(
-            "Mes",
-            range(1,13),
-            format_func=lambda x: meses[x-1],
-            key="mes_dashboard"
-        )
+    inventario_costo = (
+        (inv["stock"] * inv["costo"]).sum()
+        if not inv.empty else 0
+    )
 
-        anio_dash = st.selectbox(
-            "Año",
-            sorted(
-                ven_dash["fecha"]
-                .dt.year.unique()
-            ) if not ven_dash.empty else [datetime.now().year],
-            key="anio_dashboard"
-        )
+    inventario_venta = (
+        (inv["stock"] * inv["venta"]).sum()
+        if not inv.empty else 0
+    )
 
-        if not ven_dash.empty:
+    stock_bajo = (
+        len(inv[inv["stock"] < 5])
+        if not inv.empty else 0
+    )
 
-            ven_dash = ven_dash[
-                (ven_dash["fecha"].dt.month == mes_dash) &
-                (ven_dash["fecha"].dt.year == anio_dash)
+    producto_top = "-"
+
+    if not ven.empty:
+
+        producto_top = (
+            ven.groupby("producto")[
+                "cantidad"
             ]
-
-    elif tipo_dashboard == "Año":
-
-        anio_dash = st.selectbox(
-            "Año",
-            sorted(
-                ven_dash["fecha"]
-                .dt.year.unique()
-            ) if not ven_dash.empty else [datetime.now().year],
-            key="anio_dashboard_only"
+            .sum()
+            .idxmax()
         )
 
-        if not ven_dash.empty:
+    c1,c2,c3,c4 = st.columns(4)
 
-            ven_dash = ven_dash[
-                ven_dash["fecha"].dt.year == anio_dash
-            ]
+    c1.metric(
+        "💰 Ventas",
+        f"S/ {ventas_total:,.2f}"
+    )
 
-    if not ven_dash.empty:
+    c2.metric(
+        "📈 Utilidad",
+        f"S/ {utilidad_neta:,.2f}"
+    )
+
+    c3.metric(
+        "🛒 Vendidos",
+        productos_vendidos
+    )
+
+    c4.metric(
+        "📦 Stock",
+        stock_total
+    )
+
+    c5,c6,c7,c8 = st.columns(4)
+
+    c5.metric(
+        "⚠ Stock Bajo",
+        stock_bajo
+    )
+
+    c6.metric(
+        "🏆 Más Vendido",
+        producto_top
+    )
+
+    c7.metric(
+        "🏭 Inventario",
+        f"S/ {inventario_costo:,.2f}"
+    )
+
+    c8.metric(
+        "🏪 Valorizado",
+        f"S/ {inventario_venta:,.2f}"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # GRAFICO BARRAS
+    # =====================================================
+
+    if not ven.empty:
+
+        st.subheader(
+            "📊 Ganancia por Producto"
+        )
 
         fig1 = px.bar(
-            ven_dash.groupby("producto")[
+            ven.groupby("producto")[
                 "ganancia"
             ].sum().reset_index(),
             x="producto",
             y="ganancia",
-            title="Ganancia por Producto"
+            text_auto=True
         )
 
         st.plotly_chart(
@@ -804,20 +781,118 @@ with tab5:
             use_container_width=True
         )
 
-        ventas_fecha = ven_dash.groupby(
-            "fecha"
-        )["ganancia"].sum().reset_index()
+    # =====================================================
+    # GRAFICO PASTEL
+    # =====================================================
 
-        fig2 = px.line(
-            ventas_fecha,
-            x="fecha",
-            y="ganancia",
-            title="Ganancias por Fecha"
+    if not ven.empty:
+
+        st.subheader(
+            "🥧 Participación de Ventas"
+        )
+
+        pie = px.pie(
+            ven.groupby("producto")[
+                "cantidad"
+            ].sum().reset_index(),
+            names="producto",
+            values="cantidad",
+            hole=0.4
         )
 
         st.plotly_chart(
-            fig2,
+            pie,
             use_container_width=True
+        )
+
+    # =====================================================
+    # GRAFICO LINEA
+    # =====================================================
+
+    if not ven.empty:
+
+        ven["fecha"] = pd.to_datetime(
+            ven["fecha"]
+        )
+
+        st.subheader(
+            "📈 Evolución de Ganancias"
+        )
+
+        linea = px.line(
+            ven.groupby("fecha")[
+                "ganancia"
+            ].sum().reset_index(),
+            x="fecha",
+            y="ganancia",
+            markers=True
+        )
+
+        st.plotly_chart(
+            linea,
+            use_container_width=True
+        )
+
+    # =====================================================
+    # STOCK ACTUAL
+    # =====================================================
+
+    if not inv.empty:
+
+        st.subheader(
+            "📦 Stock Actual"
+        )
+
+        stock_fig = px.bar(
+            inv,
+            x="stock",
+            y="producto",
+            orientation="h",
+            text_auto=True
+        )
+
+        st.plotly_chart(
+            stock_fig,
+            use_container_width=True
+        )
+
+    # =====================================================
+    # ALERTAS
+    # =====================================================
+
+    st.subheader("🚨 Alertas")
+
+    agotados = inv[
+        inv["stock"] == 0
+    ]
+
+    bajos = inv[
+        (inv["stock"] > 0) &
+        (inv["stock"] < 5)
+    ]
+
+    if not agotados.empty:
+
+        st.error(
+            f"❌ {len(agotados)} productos agotados"
+        )
+
+        st.dataframe(
+            agotados[
+                ["producto","stock"]
+            ]
+        )
+
+    if not bajos.empty:
+
+        st.warning(
+            f"⚠ {len(bajos)} productos con stock bajo"
+        )
+
+        st.dataframe(
+            bajos[
+                ["producto","stock"]
+            ]
         )
 
 # =========================================================
@@ -826,9 +901,7 @@ with tab5:
 
 with tab6:
 
-    st.subheader(
-        "Exportar Excel"
-    )
+    st.subheader("💾 Exportar Excel")
 
     output = BytesIO()
 
@@ -858,5 +931,5 @@ with tab6:
     st.download_button(
         "📥 Descargar ERP",
         output.getvalue(),
-        file_name="tulip_erp.xlsx"
+        "tulip_erp.xlsx"
     )

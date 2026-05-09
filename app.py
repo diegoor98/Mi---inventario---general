@@ -4,134 +4,118 @@ import numpy_financial as npf
 from io import BytesIO
 from datetime import datetime
 
-# Configuración Pro para Celular
-st.set_page_config(page_title="ERP Negocio Pro", layout="wide", initial_sidebar_state="collapsed")
+# Configuración Tulip S.A. 🌷
+st.set_page_config(page_title="Tulip S.A. ERP", page_icon="🌷", layout="wide")
 
-# Función para exportar a Excel con varias pestañas
 def convertir_a_excel(df_inv, df_ven, df_ops):
     output = BytesIO()
+    fecha_str = datetime.now().strftime('%d-%m-%Y')
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_inv.to_excel(writer, index=False, sheet_name='Inventario')
-        df_ven.to_excel(writer, index=False, sheet_name='Ventas')
-        df_ops.to_excel(writer, index=False, sheet_name='Costos_Operativos')
+        df_inv.to_excel(writer, index=False, sheet_name='Stock_General')
+        df_ven.to_excel(writer, index=False, sheet_name='Historial_Ventas')
+        df_ops.to_excel(writer, index=False, sheet_name='Gastos_Operativos')
     return output.getvalue()
 
-st.title("💼 Gestión Empresarial Ultra-Pro")
-st.write("Sube tu archivo para continuar o rellena datos nuevos.")
+st.markdown("<h1 style='text-align: center;'>🌷 Tulip S.A.</h1>", unsafe_allow_html=True)
 
-# --- 1. CARGA DE DATOS ---
-archivo_subido = st.file_uploader("📂 Cargar Base de Datos (Excel)", type=["xlsx"])
+# --- CARGA DE DATOS ---
+archivo_subido = st.file_uploader("📂 Cargar Base de Datos Tulip S.A.", type=["xlsx"])
 
 if archivo_subido:
     try:
-        df_inv = pd.read_excel(archivo_subido, sheet_name='Inventario')
-        df_ven = pd.read_excel(archivo_subido, sheet_name='Ventas')
-        df_ops = pd.read_excel(archivo_subido, sheet_name='Costos_Operativos')
+        df_inv = pd.read_excel(archivo_subido, sheet_name=0)
+        df_ven = pd.read_excel(archivo_subido, sheet_name=1)
+        df_ops = pd.read_excel(archivo_subido, sheet_name=2)
+        df_ven['Fecha'] = pd.to_datetime(df_ven['Fecha'])
     except:
-        df_inv = pd.read_excel(archivo_subido)
-        df_ven = pd.DataFrame(columns=["Fecha", "Producto", "Cantidad", "Ganancia"])
-        df_ops = pd.DataFrame(columns=["Concepto", "Monto"])
+        df_inv = pd.DataFrame(columns=["Producto", "Categoria", "Stock", "Costo", "Venta"])
+        df_ven = pd.DataFrame(columns=["Fecha", "Producto", "Cantidad", "Costo_Ref", "Venta_Ref", "Ganancia"])
+        df_ops = pd.DataFrame(columns=["Fecha", "Concepto", "Monto"])
 else:
     df_inv = pd.DataFrame(columns=["Producto", "Categoria", "Stock", "Costo", "Venta"])
-    df_ven = pd.DataFrame(columns=["Fecha", "Producto", "Cantidad", "Ganancia"])
-    df_ops = pd.DataFrame(columns=["Concepto", "Monto"])
+    df_ven = pd.DataFrame(columns=["Fecha", "Producto", "Cantidad", "Costo_Ref", "Venta_Ref", "Ganancia"])
+    df_ops = pd.DataFrame(columns=["Fecha", "Concepto", "Monto"])
 
-# --- 2. MENU PRINCIPAL POR PESTAÑAS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Stock", "🛒 Ventas", "💸 Gastos Ops", "📊 Balance", "💾 Guardar"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Stock", "🛒 Ventas", "💸 Gastos", "📊 Balance Mensual", "💾 Guardar"])
 
-# PESTAÑA 1: INVENTARIO
 with tab1:
-    st.subheader("Control de Existencias")
+    st.subheader("Gestión de Inventario Permanente 🌷")
     with st.expander("➕ Añadir / Editar Producto"):
-        with st.form("add_form"):
-            n = st.text_input("Nombre").capitalize()
-            c = st.text_input("Categoría").capitalize()
-            can = st.number_input("Cantidad", min_value=0)
-            cos = st.number_input("Costo Unitario", min_value=0.0)
-            ven = st.number_input("Precio Venta", min_value=0.0)
-            if st.form_submit_button("Guardar Producto"):
+        opciones = ["Nuevo"] + list(df_inv['Producto'].unique())
+        sel = st.selectbox("Producto:", opciones)
+        d_n = sel if sel != "Nuevo" else ""
+        d_c = df_inv[df_inv['Producto']==sel].iloc[0]['Categoria'] if sel != "Nuevo" else ""
+        d_s = int(df_inv[df_inv['Producto']==sel].iloc[0]['Stock']) if sel != "Nuevo" else 0
+        d_co = float(df_inv[df_inv['Producto']==sel].iloc[0]['Costo']) if sel != "Nuevo" else 0.0
+        d_v = float(df_inv[df_inv['Producto']==sel].iloc[0]['Venta']) if sel != "Nuevo" else 0.0
+
+        with st.form("f_inv"):
+            n = st.text_input("Nombre", value=d_n).capitalize()
+            c = st.text_input("Categoría", value=d_c).capitalize()
+            can = st.number_input("Stock", value=d_s, min_value=0)
+            cos = st.number_input("Costo", value=d_co, format="%.2f")
+            ven = st.number_input("Venta", value=d_v, format="%.2f")
+            if st.form_submit_button("Guardar"):
                 if n in df_inv['Producto'].values:
-                    df_inv.loc[df_inv['Producto'] == n, ['Stock', 'Costo', 'Venta']] = [can, cos, ven]
+                    df_inv.loc[df_inv['Producto'] == n, ['Categoria', 'Stock', 'Costo', 'Venta']] = [c, can, cos, ven]
                 else:
-                    nuevo = pd.DataFrame([{"Producto": n, "Categoria": c, "Stock": can, "Costo": cos, "Venta": ven}])
-                    df_inv = pd.concat([df_inv, nuevo], ignore_index=True)
-                st.success("Actualizado")
-
-    st.write("### Inventario Actual")
+                    df_inv = pd.concat([df_inv, pd.DataFrame([{"Producto": n, "Categoria": c, "Stock": can, "Costo": cos, "Venta": ven}])], ignore_index=True)
+                st.rerun()
     st.dataframe(df_inv, use_container_width=True)
-    inversion_stock = (df_inv['Stock'] * df_inv['Costo']).sum()
-    st.metric("Costo Total de Inventario", f"${inversion_stock:,.2f}")
 
-# PESTAÑA 2: VENTAS
 with tab2:
-    st.subheader("Registrar Venta")
+    st.subheader("Registrar Venta 💰")
     if not df_inv.empty:
-        prod_v = st.selectbox("Seleccionar Producto", df_inv['Producto'].unique())
-        cant_v = st.number_input("Cantidad Vendida", min_value=1)
-        if st.button("🚀 Procesar Venta"):
-            idx = df_inv[df_inv['Producto'] == prod_v].index[0]
-            if df_inv.at[idx, 'Stock'] >= cant_v:
-                df_inv.at[idx, 'Stock'] -= cant_v
-                gan_v = cant_v * (df_inv.at[idx, 'Venta'] - df_inv.at[idx, 'Costo'])
-                nueva_v = pd.DataFrame([{"Fecha": datetime.now().strftime("%d/%m/%y %H:%M"), "Producto": prod_v, "Cantidad": cant_v, "Ganancia": gan_v}])
-                df_ven = pd.concat([df_ven, nueva_v], ignore_index=True)
-                st.success(f"Venta Exitosa. Ganancia: ${gan_v:,.2f}")
-            else:
-                st.error("No hay suficiente Stock")
+        p_v = st.selectbox("Vender:", df_inv['Producto'].unique())
+        cant_v = st.number_input("Cant:", min_value=1)
+        if st.button("Procesar Venta"):
+            idx = df_inv[df_inv['Producto'] == p_v].index
+            if df_inv.at[idx[0], 'Stock'] >= cant_v:
+                c_m, v_m = df_inv.at[idx[0], 'Costo'], df_inv.at[idx[0], 'Venta']
+                gan = cant_v * (v_m - c_m)
+                df_inv.at[idx[0], 'Stock'] -= cant_v
+                nueva = pd.DataFrame([{"Fecha": datetime.now(), "Producto": p_v, "Cantidad": cant_v, "Costo_Ref": c_m, "Venta_Ref": v_m, "Ganancia": gan}])
+                df_ven = pd.concat([df_ven, nueva], ignore_index=True)
+                st.success("Venta Exitosa")
+            else: st.error("Sin stock")
 
-# PESTAÑA 3: GASTOS OPERATIVOS
 with tab3:
-    st.subheader("Gastos Mensuales (Alquiler, Luz, etc.)")
-    with st.form("ops_form"):
-        con_op = st.text_input("Concepto (Ej: Alquiler)")
-        mon_op = st.number_input("Monto", min_value=0.0)
-        if st.form_submit_button("Registrar Gasto"):
-            df_ops = pd.concat([df_ops, pd.DataFrame([{"Concepto": con_op, "Monto": mon_op}])], ignore_index=True)
-            st.success("Gasto añadido")
+    st.subheader("Gastos Tulip S.A. 🏢")
+    with st.form("f_gastos"):
+        con = st.text_input("Concepto"); mon = st.number_input("Monto", min_value=0.0)
+        if st.form_submit_button("Añadir Gasto"):
+            df_ops = pd.concat([df_ops, pd.DataFrame([{"Fecha": datetime.now(), "Concepto": con, "Monto": mon}])], ignore_index=True)
     st.dataframe(df_ops, use_container_width=True)
 
-# PESTAÑA 4: BALANCE FINANCIERO (VAN/TIR)
 with tab4:
-    st.header("📊 Balance y Rentabilidad")
+    st.header("📊 Balance Inteligente Tulip S.A.")
     
-    ganancia_ventas = df_ven['Ganancia'].sum() if not df_ven.empty else 0
-    gastos_totales = df_ops['Monto'].sum() if not df_ops.empty else 0
-    utilidad_neta = ganancia_ventas - gastos_totales
-    inv_stock = (df_inv['Stock'] * df_inv['Costo']).sum()
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Ganancia por Ventas", f"${ganancia_ventas:,.2f}")
-    c2.metric("Costos Operativos", f"- ${gastos_totales:,.2f}")
-    c3.metric("Utilidad Neta", f"${utilidad_neta:,.2f}")
-
+    # Selector de Mes y Año para el Balance
+    df_ven['Fecha'] = pd.to_datetime(df_ven['Fecha'])
+    meses_dict = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio", 7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+    
+    col_f1, col_f2 = st.columns(2)
+    mes_sel = col_f1.selectbox("Seleccionar Mes:", list(meses_dict.values()), index=datetime.now().month-1)
+    ano_sel = col_f2.selectbox("Seleccionar Año:", [2024, 2025, 2026], index=2)
+    
+    # Filtrar datos por mes seleccionado
+    mes_num = [k for k, v in meses_dict.items() if v == mes_sel][0]
+    ventas_mes = df_ven[(df_ven['Fecha'].dt.month == mes_num) & (df_ven['Fecha'].dt.year == ano_sel)]
+    gastos_mes = df_ops[(pd.to_datetime(df_ops['Fecha']).dt.month == mes_num) & (pd.to_datetime(df_ops['Fecha']).dt.year == ano_sel)]
+    
+    utilidad_bruta = ventas_mes['Ganancia'].sum()
+    costo_operativo = gastos_mes['Monto'].sum()
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric(f"Ventas {mes_sel}", f"${utilidad_bruta:,.2f}")
+    m2.metric(f"Gastos {mes_sel}", f"- ${costo_operativo:,.2f}")
+    m3.metric("Utilidad Neta", f"${utilidad_bruta - costo_operativo:,.2f}")
+    
     st.divider()
-    
-    col_fin1, col_fin2 = st.columns(2)
-    with col_fin1:
-        st.write("### Indicadores")
-        renta = (utilidad_neta / inv_stock * 100) if inv_stock > 0 else 0
-        st.write(f"**Rentabilidad:** {renta:.2f}%")
-        
-        if inv_stock > 0:
-            flujos = [-inv_stock] + [utilidad_neta] * 12
-            tir = npf.irr(flujos)
-            van = npf.npv(0.12/12, flujos)
-            st.write(f"**TIR:** {tir*100:.2f}%" if not pd.isna(tir) else "**TIR:** calculando...")
-            st.write(f"**VAN:** ${van:,.2f}")
-    
-    with col_fin2:
-        st.write("### Inversión")
-        st.write(f"**Costo de Stock Actual:** ${inv_stock:,.2f}")
+    st.subheader("Situación Actual de Mercancía")
+    inv_valor = (df_inv['Stock'] * df_inv['Costo']).sum()
+    st.write(f"💼 **Capital invertido en stock hoy:** ${inv_valor:,.2f}")
 
-# PESTAÑA 5: GUARDAR
 with tab5:
-    st.subheader("💾 Guardar y Descargar")
-    st.info("Descarga tu archivo Excel para no perder los datos del día.")
-    excel_final = convertir_a_excel(df_inv, df_ven, df_ops)
-    st.download_button(
-        label="📥 DESCARGAR EXCEL ACTUALIZADO",
-        data=excel_final,
-        file_name=f"Balance_{datetime.now().strftime('%d_%m_%y')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
+    st.subheader("💾 Guardar y Exportar")
+    st.download_button(f"📥 Descargar Reporte de Tulip S.A.", data=convertir_a_excel(df_inv, df_ven, df_ops), file_name=f"Tulip_SA_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)

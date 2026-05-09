@@ -22,11 +22,11 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-.main {
-    background-color: #0E1117;
+.main{
+    background-color:#0E1117;
 }
 
-h1,h2,h3,h4 {
+h1,h2,h3,h4{
     color:white;
 }
 
@@ -41,14 +41,21 @@ h1,h2,h3,h4 {
 div.stButton > button{
     background:#FF4B91;
     color:white;
-    border-radius:10px;
-    padding:10px;
-    font-weight:bold;
     border:none;
+    border-radius:8px;
+    padding:6px 14px;
+    font-size:14px;
+    font-weight:600;
+    transition:0.2s;
 }
 
 div.stButton > button:hover{
     background:#FF2E7A;
+    transform:scale(1.03);
+}
+
+.stCheckbox{
+    padding-top:10px;
 }
 
 </style>
@@ -58,7 +65,11 @@ div.stButton > button:hover{
 # DATABASE
 # =========================================================
 
-conn = sqlite3.connect("tulip_erp.db", check_same_thread=False)
+conn = sqlite3.connect(
+    "tulip_erp.db",
+    check_same_thread=False
+)
+
 cursor = conn.cursor()
 
 # =========================================================
@@ -176,7 +187,7 @@ def guardar_producto(
 
     conn.commit()
 
-    return True, "Guardado"
+    return True, "Producto guardado"
 
 # =========================================================
 
@@ -203,7 +214,9 @@ def registrar_venta(
 
     nuevo_stock = stock - cantidad
 
-    ganancia = cantidad * (precio_venta - costo)
+    ganancia = cantidad * (
+        precio_venta - costo
+    )
 
     cursor.execute("""
     UPDATE inventario
@@ -283,7 +296,10 @@ if archivo:
 
         df = pd.read_excel(archivo)
 
-        df.columns = [c.lower() for c in df.columns]
+        df.columns = [
+            c.lower()
+            for c in df.columns
+        ]
 
         columnas = [
             "producto",
@@ -293,9 +309,14 @@ if archivo:
             "venta"
         ]
 
-        if not all(c in df.columns for c in columnas):
+        if not all(
+            c in df.columns
+            for c in columnas
+        ):
 
-            st.sidebar.error("Columnas inválidas")
+            st.sidebar.error(
+                "Columnas inválidas"
+            )
 
         else:
 
@@ -309,13 +330,17 @@ if archivo:
                     float(r["venta"])
                 )
 
-            st.sidebar.success("Importado correctamente")
+            st.sidebar.success(
+                "Importado correctamente"
+            )
 
             st.rerun()
 
     except Exception as e:
 
-        st.sidebar.error(f"Error: {e}")
+        st.sidebar.error(
+            f"Error: {e}"
+        )
 
 # =========================================================
 # TITULO
@@ -339,11 +364,15 @@ inv, ven, gas = cargar_datos()
 
 if not inv.empty:
 
-    bajo = inv[inv["stock"] < 5]
+    bajo = inv[
+        inv["stock"] < 5
+    ]
 
     if not bajo.empty:
 
-        st.warning("⚠ Productos con stock bajo")
+        st.warning(
+            "⚠ Productos con stock bajo"
+        )
 
         st.dataframe(
             bajo[["producto", "stock"]]
@@ -370,16 +399,25 @@ with tab1:
 
     st.subheader("Inventario")
 
-    buscar = st.text_input("🔍 Buscar producto")
+    buscar = st.text_input(
+        "🔍 Buscar producto"
+    )
 
     if buscar:
 
         filtro = inv[
             inv["producto"]
-            .str.contains(buscar, case=False)
+            .str.contains(
+                buscar,
+                case=False
+            )
         ]
 
         st.dataframe(filtro)
+
+    # =====================================================
+    # FORM INVENTARIO
+    # =====================================================
 
     with st.form("inventario_form"):
 
@@ -395,7 +433,10 @@ with tab1:
         costo0 = 0.0
         venta0 = 0.0
 
-        if modo == "Existente" and not inv.empty:
+        if (
+            modo == "Existente"
+            and not inv.empty
+        ):
 
             producto = st.selectbox(
                 "Producto",
@@ -412,7 +453,9 @@ with tab1:
 
         else:
 
-            producto = st.text_input("Producto")
+            producto = st.text_input(
+                "Producto"
+            )
 
         categoria = st.text_input(
             "Categoria",
@@ -456,10 +499,13 @@ with tab1:
             )
 
             if ok:
+
                 st.success(msg)
+
                 st.rerun()
 
             else:
+
                 st.error(msg)
 
     st.divider()
@@ -486,7 +532,9 @@ with tab1:
             ]["stock"].values[0]
         )
 
-        st.info(f"Stock actual: {stock_actual}")
+        st.info(
+            f"Stock actual: {stock_actual}"
+        )
 
         cantidad = st.number_input(
             "Cantidad",
@@ -509,16 +557,20 @@ with tab1:
 
                 conn.commit()
 
-                st.success("Stock actualizado")
+                st.success(
+                    "Stock actualizado"
+                )
 
                 st.rerun()
 
             else:
 
-                st.error("Cantidad mayor al stock")
+                st.error(
+                    "Cantidad mayor al stock"
+                )
 
     # =====================================================
-    # ELIMINAR
+    # ELIMINAR PRODUCTO SEGURO
     # =====================================================
 
     st.subheader("🗑 Eliminar Producto")
@@ -526,18 +578,78 @@ with tab1:
     if not inv.empty:
 
         pe = st.selectbox(
-            "Seleccionar",
+            "Seleccionar producto",
             inv["producto"],
-            key="eliminar"
+            key="eliminar_producto"
         )
 
-        if st.button("Eliminar Producto"):
+        st.markdown(
+            f"""
+            <div style="
+                background:#161B22;
+                padding:12px;
+                border-radius:10px;
+                border:1px solid #30363D;
+                margin-bottom:10px;
+            ">
+            ⚠ Está a punto de eliminar:
+            <b>{pe}</b>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-            eliminar_producto(pe)
+        confirmar = st.checkbox(
+            "Sí, estoy seguro de eliminar este producto"
+        )
 
-            st.success("Producto eliminado")
+        col1, col2, col3 = st.columns([1,1,5])
 
-            st.rerun()
+        with col1:
+
+            eliminar_btn = st.button(
+                "Eliminar",
+                key="btn_eliminar"
+            )
+
+        with col2:
+
+            cancelar_btn = st.button(
+                "Cancelar",
+                key="btn_cancelar"
+            )
+
+        # =================================================
+        # ELIMINAR
+        # =================================================
+
+        if eliminar_btn:
+
+            if confirmar:
+
+                eliminar_producto(pe)
+
+                st.success(
+                    f"{pe} eliminado correctamente"
+                )
+
+                st.rerun()
+
+            else:
+
+                st.warning(
+                    "Debe confirmar la eliminación"
+                )
+
+        # =================================================
+        # CANCELAR
+        # =================================================
+
+        if cancelar_btn:
+
+            st.info(
+                "Operación cancelada"
+            )
 
 # =========================================================
 # VENTAS
@@ -599,7 +711,9 @@ with tab3:
 
     with st.form("gastos_form"):
 
-        concepto = st.text_input("Concepto")
+        concepto = st.text_input(
+            "Concepto"
+        )
 
         monto = st.number_input(
             "Monto",
@@ -619,7 +733,9 @@ with tab3:
                 monto
             )
 
-            st.success("Gasto registrado")
+            st.success(
+                "Gasto registrado"
+            )
 
             st.rerun()
 
@@ -633,7 +749,9 @@ with tab3:
 
 with tab4:
 
-    st.subheader("Balance General")
+    st.subheader(
+        "Balance General"
+    )
 
     ventas_total = (
         ven["venta_ref"].sum()
@@ -654,10 +772,25 @@ with tab4:
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("Ventas", f"S/ {ventas_total:,.2f}")
-    col2.metric("Ganancia", f"S/ {ganancias:,.2f}")
-    col3.metric("Gastos", f"S/ {gastos_total:,.2f}")
-    col4.metric("Utilidad", f"S/ {utilidad:,.2f}")
+    col1.metric(
+        "Ventas",
+        f"S/ {ventas_total:,.2f}"
+    )
+
+    col2.metric(
+        "Ganancia",
+        f"S/ {ganancias:,.2f}"
+    )
+
+    col3.metric(
+        "Gastos",
+        f"S/ {gastos_total:,.2f}"
+    )
+
+    col4.metric(
+        "Utilidad",
+        f"S/ {utilidad:,.2f}"
+    )
 
 # =========================================================
 # DASHBOARD
@@ -669,12 +802,10 @@ with tab5:
 
     if not ven.empty:
 
-        # GANANCIAS
-
         fig1 = px.bar(
-            ven.groupby("producto")["ganancia"]
-            .sum()
-            .reset_index(),
+            ven.groupby("producto")[
+                "ganancia"
+            ].sum().reset_index(),
             x="producto",
             y="ganancia",
             title="Ganancia por Producto"
@@ -684,8 +815,6 @@ with tab5:
             fig1,
             use_container_width=True
         )
-
-        # VENTAS
 
         ventas_fecha = ven.groupby(
             "fecha"
@@ -709,7 +838,9 @@ with tab5:
 
 with tab6:
 
-    st.subheader("Exportar Excel")
+    st.subheader(
+        "Exportar Excel"
+    )
 
     output = BytesIO()
 

@@ -46,16 +46,10 @@ div.stButton > button{
     padding:6px 14px;
     font-size:14px;
     font-weight:600;
-    transition:0.2s;
 }
 
 div.stButton > button:hover{
     background:#FF2E7A;
-    transform:scale(1.03);
-}
-
-.stCheckbox{
-    padding-top:10px;
 }
 
 </style>
@@ -289,69 +283,6 @@ def eliminar_producto(producto):
 inv, ven, gas = cargar_datos()
 
 # =========================================================
-# IMPORTAR EXCEL
-# =========================================================
-
-st.sidebar.header("📂 Importar Excel")
-
-archivo = st.sidebar.file_uploader(
-    "Subir archivo",
-    type=["xlsx"]
-)
-
-if archivo:
-
-    try:
-
-        df = pd.read_excel(archivo)
-
-        df.columns = [
-            c.lower()
-            for c in df.columns
-        ]
-
-        columnas = [
-            "producto",
-            "categoria",
-            "stock",
-            "costo",
-            "venta"
-        ]
-
-        if not all(
-            c in df.columns
-            for c in columnas
-        ):
-
-            st.sidebar.error(
-                "Columnas inválidas"
-            )
-
-        else:
-
-            for _, r in df.iterrows():
-
-                guardar_producto(
-                    str(r["producto"]).title(),
-                    str(r["categoria"]),
-                    int(r["stock"]),
-                    float(r["costo"]),
-                    float(r["venta"])
-                )
-
-            st.sidebar.success(
-                "Importado correctamente"
-            )
-
-            st.rerun()
-
-    except Exception as e:
-
-        st.sidebar.error(
-            f"Error: {e}"
-        )
-
-# =========================================================
 # TITULO
 # =========================================================
 
@@ -360,32 +291,6 @@ st.markdown("""
 🌷 Tulip ERP
 </h1>
 """, unsafe_allow_html=True)
-
-# =========================================================
-# RECARGAR DATOS
-# =========================================================
-
-inv, ven, gas = cargar_datos()
-
-# =========================================================
-# STOCK BAJO
-# =========================================================
-
-if not inv.empty:
-
-    bajo = inv[
-        inv["stock"] < 5
-    ]
-
-    if not bajo.empty:
-
-        st.warning(
-            "⚠ Productos con stock bajo"
-        )
-
-        st.dataframe(
-            bajo[["producto", "stock"]]
-        )
 
 # =========================================================
 # TABS
@@ -436,6 +341,10 @@ with tab1:
         costo0 = 0.0
         venta0 = 0.0
 
+        # =================================================
+        # EXISTENTE
+        # =================================================
+
         if modo == "Existente" and not inv.empty:
 
             producto_existente = st.selectbox(
@@ -453,6 +362,10 @@ with tab1:
             categoria0 = d["categoria"]
             costo0 = d["costo"]
             venta0 = d["venta"]
+
+        # =================================================
+        # NUEVO
+        # =================================================
 
         else:
 
@@ -661,7 +574,8 @@ with tab4:
     tipo_balance = st.radio(
         "Ver balance por:",
         ["Todo", "Mes", "Año"],
-        horizontal=True
+        horizontal=True,
+        key="radio_balance"
     )
 
     ven_filtrado = ven.copy()
@@ -689,7 +603,8 @@ with tab4:
         mes = st.selectbox(
             "Mes",
             range(1,13),
-            format_func=lambda x: meses[x-1]
+            format_func=lambda x: meses[x-1],
+            key="mes_balance"
         )
 
         anio = st.selectbox(
@@ -697,7 +612,8 @@ with tab4:
             sorted(
                 ven_filtrado["fecha"]
                 .dt.year.unique()
-            ) if not ven_filtrado.empty else [datetime.now().year]
+            ) if not ven_filtrado.empty else [datetime.now().year],
+            key="anio_balance"
         )
 
         if not ven_filtrado.empty:
@@ -721,7 +637,8 @@ with tab4:
             sorted(
                 ven_filtrado["fecha"]
                 .dt.year.unique()
-            ) if not ven_filtrado.empty else [datetime.now().year]
+            ) if not ven_filtrado.empty else [datetime.now().year],
+            key="anio_balance_only"
         )
 
         if not ven_filtrado.empty:
@@ -810,7 +727,8 @@ with tab5:
     tipo_dashboard = st.radio(
         "Ver dashboard por:",
         ["Todo", "Mes", "Año"],
-        horizontal=True
+        horizontal=True,
+        key="radio_dashboard"
     )
 
     ven_dash = ven.copy()
@@ -833,7 +751,8 @@ with tab5:
         mes_dash = st.selectbox(
             "Mes",
             range(1,13),
-            format_func=lambda x: meses[x-1]
+            format_func=lambda x: meses[x-1],
+            key="mes_dashboard"
         )
 
         anio_dash = st.selectbox(
@@ -841,7 +760,8 @@ with tab5:
             sorted(
                 ven_dash["fecha"]
                 .dt.year.unique()
-            ) if not ven_dash.empty else [datetime.now().year]
+            ) if not ven_dash.empty else [datetime.now().year],
+            key="anio_dashboard"
         )
 
         if not ven_dash.empty:
@@ -858,7 +778,8 @@ with tab5:
             sorted(
                 ven_dash["fecha"]
                 .dt.year.unique()
-            ) if not ven_dash.empty else [datetime.now().year]
+            ) if not ven_dash.empty else [datetime.now().year],
+            key="anio_dashboard_only"
         )
 
         if not ven_dash.empty:

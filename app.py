@@ -172,14 +172,14 @@ cursor.execute("DROP TABLE IF EXISTS inventario")
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-codigo TEXT,
-producto TEXT,
-categoria TEXT,
-talla TEXT,
-color TEXT,
-stock INTEGER,
-costo REAL,
-venta REAL
+codigo TEXT DEFAULT '',
+producto TEXT DEFAULT '',
+categoria TEXT DEFAULT '',
+talla TEXT DEFAULT '',
+color TEXT DEFAULT '',
+stock INTEGER DEFAULT 0,
+costo REAL DEFAULT 0,
+venta REAL DEFAULT 0
 )
 """)
 
@@ -478,7 +478,6 @@ cantidad
 
 def registrar_gasto(
 fecha,
-codigo,
 concepto,
 monto
 ): 
@@ -488,7 +487,6 @@ monto
     VALUES(NULL,?,?,?,?)
     """,(
     fecha,
-    codigo,
     concepto,
     monto
     )) 
@@ -1534,15 +1532,27 @@ with tab7:
                         continue
 
                     cursor.execute("""
-                    INSERT INTO inventario
-                    VALUES(NULL,?,?,?,?,?)
+                    INSERT INTO inventario(
+                    codigo,
+                    producto,
+                    categoria,
+                    talla,
+                    color,
+                    stock,
+                    costo,
+                    venta
+          )
+                    VALUES(?,?,?,?,?,?,?,?)
                     """, (
-                        producto,
-                        categoria,
-                        stock,
-                        costo,
-                        venta
-                    ))
+                    str(r.get("codigo","")),
+                    producto,
+                    categoria,
+                    str(r.get("talla","")),
+                    str(r.get("color","")),
+                    stock,
+                    costo,
+                    venta
+           ))
 
             # =================================================
             # VENTAS

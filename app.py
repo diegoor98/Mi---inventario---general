@@ -317,7 +317,9 @@ if file:
         f"Error: {e}"
         )
 
-
+if "historial_stock" not in st.session_state:
+    st.session_state.historial_stock = []
+    
 # =========================================================
 # FUNCIONES
 # ========================================================= 
@@ -555,6 +557,9 @@ def reducir_stock(producto, cantidad):
     if cantidad > stock_actual:
         return False, f"No hay suficiente stock ({stock_actual})"
 
+    # 🔥 GUARDAR ANTES DEL CAMBIO
+    st.session_state.historial_stock.append((producto, stock_actual))
+
     nuevo_stock = stock_actual - cantidad
 
     cursor.execute("""
@@ -568,12 +573,14 @@ def reducir_stock(producto, cantidad):
     return True, "Stock reducido"
 # ========================================================= 
 
-def deshacer_stock():
+def deshacer_accion():
 
-    if not historial_stock:
+    historial = st.session_state.historial_stock
+
+    if not historial:
         return False, "No hay acciones para deshacer"
 
-    producto, stock_anterior = historial_stock.pop()
+    producto, stock_anterior = historial.pop()
 
     cursor.execute("""
         UPDATE inventario
@@ -582,6 +589,8 @@ def deshacer_stock():
     """, (stock_anterior, producto))
 
     conn.commit()
+
+    st.session_state.historial_stock = historial
 
     return True, "Acción deshecha"
 

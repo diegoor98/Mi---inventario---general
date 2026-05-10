@@ -169,10 +169,10 @@ cursor = conn.cursor()
 
 cursor.execute("DROP TABLE IF EXISTS inventario")
 
- cursor.execute("""
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-código TEXT,
+codigo TEXT,
 producto TEXT,
 categoria TEXT,
 talla TEXT,
@@ -241,11 +241,14 @@ if file:
 
                 cursor.execute("""
                 INSERT INTO inventario
-                VALUES(?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
+                str(r["codigo"]),
                 str(r["producto"]),
                 str(r["categoria"]),
+                str(r["talla"]),
+                str(r["color"]),
                 int(r["stock"]),
                 float(r["costo"]),
                 float(r["venta"])
@@ -270,9 +273,10 @@ if file:
 
                 cursor.execute("""
                 INSERT INTO ventas
-                VALUES(?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
+                str(r["codigo"]),
                 str(r["fecha"]),
                 str(r["producto"]),
                 int(r["cantidad"]),
@@ -352,7 +356,7 @@ def cargar():
 # ========================================================= 
 
 def guardar_producto(
-código,
+codigo,
 producto,
 categoria,
 talla,
@@ -375,12 +379,14 @@ venta
 
         cursor.execute("""
         UPDATE inventario
-        SET categoria=?,
+        SET codigo=?,
+        categoria=?,
         stock=?,
         costo=?,
         venta=?
         WHERE producto=?
         """,(
+         codigo,
         categoria,
         nuevo_stock,
         costo,
@@ -394,7 +400,7 @@ venta
         INSERT INTO inventario
         VALUES(NULL,?,?,?,?,?,?,?,?)
         """,(
-        código,
+        codigo,
         producto,
         categoria,
         talla,
@@ -402,7 +408,7 @@ venta
         stock,
         costo,
         venta
-) 
+)) 
 
     conn.commit() 
 
@@ -410,6 +416,7 @@ venta
 
 def registrar_venta(
 fecha,
+codigo,
 producto,
 cantidad
 ): 
@@ -425,7 +432,7 @@ cantidad
         return False, "Producto no existe" 
 
     # CORREGIDO: Desempaquetado explícito de los 6 campos de la tabla inventario
-    id_p, código_p, prod_p, cat_p, talla_p, color_p, stock, costo, venta = d 
+    id_p, codi_p, prod_p, cat_p, tal_p, col_p, stock, costo, venta = d 
 
     if cantidad > stock:
         return False, f"Stock insuficiente ({stock})" 
@@ -447,9 +454,10 @@ cantidad
 
     cursor.execute("""
     INSERT INTO ventas
-    VALUES(NULL,?,?,?,?,?,?)
+    VALUES(NULL,?,?,?,?,?,?,?)
     """,(
     fecha,
+    codigo,
     producto,
     cantidad,
     costo,
@@ -465,15 +473,17 @@ cantidad
 
 def registrar_gasto(
 fecha,
+codigo,
 concepto,
 monto
 ): 
 
     cursor.execute("""
     INSERT INTO gastos
-    VALUES(NULL,?,?,?)
+    VALUES(NULL,?,?,?,?)
     """,(
     fecha,
+    codigo,
     concepto,
     monto
     )) 
@@ -745,7 +755,7 @@ with tab1:
 
             color = st.text_input("Color")
 
-            código = st.text_input("código")
+            codigo = st.text_input("código")
             
 
         # =====================================================
@@ -783,6 +793,7 @@ with tab1:
         if guardar:
 
             guardar_producto(
+              codigo,
               producto_final.title(),
               categoria,
               talla,

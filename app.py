@@ -534,7 +534,7 @@ def deshacer_ultima_venta():
 
     if ultima: 
 
-        eliminar_venta(ultima[0]) q
+        eliminar_venta(ultima[0])
         
 # ========================================================= 
 
@@ -781,40 +781,40 @@ with tab1:
     )
     st.subheader("📉 Reducir Stock")
 
-if not inv.empty:
+    if not inv.empty:
 
-    producto_r = st.selectbox(
-        "Producto",
-        inv["producto"],
-        key="reduce_stock"
-    )
+        producto_r = st.selectbox(
+            "Producto",
+            inv["producto"],
+            key="reduce_stock"
+        )
 
-    cantidad_r = st.number_input(
-        "Cantidad a reducir",
-        min_value=1
-    )
+        cantidad_r = st.number_input(
+            "Cantidad a reducir",
+            min_value=1
+        )
 
-    if st.button("Reducir stock"):
+        if st.button("Reducir stock"):
 
-        ok, msg = reducir_stock(producto_r, cantidad_r)
+            ok, msg = reducir_stock(producto_r, cantidad_r)
+
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+    
+    st.subheader("↩ Deshacer acción")
+
+    if st.button("Deshacer último cambio"):
+
+        ok, msg = deshacer_stock()
 
         if ok:
             st.success(msg)
             st.rerun()
         else:
-            st.error(msg)
-    
- st.subheader("↩ Deshacer acción")
-
-if st.button("Deshacer último cambio"):
-
-    ok, msg = deshacer_stock()
-
-    if ok:
-        st.success(msg)
-        st.rerun()
-    else:
-        st.warning(msg)
+            st.warning(msg)
     # =====================================================
     # ELIMINAR
     # =====================================================
@@ -1579,4 +1579,3 @@ with tab7:
 
         else:
             st.error("Debes confirmar primero")
-            

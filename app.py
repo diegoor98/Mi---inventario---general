@@ -187,6 +187,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS ventas(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 fecha TEXT,
+codigo TEXT,
 producto TEXT,
 cantidad INTEGER,
 costo_ref REAL,
@@ -241,18 +242,18 @@ if file:
 
                 cursor.execute("""
                 INSERT INTO inventario
-                VALUES(?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
-                str(r["codigo"]),
-                str(r["producto"]),
-                str(r["categoria"]),
-                str(r["talla"]),
-                str(r["color"]),
-                int(r["stock"]),
-                float(r["costo"]),
-                float(r["venta"])
-                ))
+                str(r.get("codigo","")),
+                str(r.get("producto","")),
+                str(r.get("categoria","")),
+                str(r.get("talla","")),
+                str(r.get("color","")),
+                int(r.get("stock",0)),
+                float(r.get("costo",0)),
+                float(r.get("venta",0))
+            ))
 
         # =================================================
         # VENTAS
@@ -375,12 +376,14 @@ venta
 
     if existe: 
 
-        nuevo_stock = existe[3] + stock 
+        nuevo_stock = existe[6] + stock 
 
         cursor.execute("""
         UPDATE inventario
         SET codigo=?,
         categoria=?,
+        talla=?,
+        color=?,
         stock=?,
         costo=?,
         venta=?
@@ -388,6 +391,8 @@ venta
         """,(
          codigo,
         categoria,
+        talla,
+        color,
         nuevo_stock,
         costo,
         venta,
@@ -755,7 +760,7 @@ with tab1:
 
             color = st.text_input("Color")
 
-            codigo = st.text_input("código")
+            codigo = st.text_input("codigo")
             
 
         # =====================================================

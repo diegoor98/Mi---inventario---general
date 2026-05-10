@@ -167,16 +167,21 @@ cursor = conn.cursor()
 # TABLAS
 # ========================================================= 
 
-cursor.execute("""
+cursor.execute("DROP TABLE IF EXISTS inventario")
+
+ cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-producto TEXT UNIQUE,
+código TEXT,
+producto TEXT,
 categoria TEXT,
+talla TEXT,
+color TEXT,
 stock INTEGER,
 costo REAL,
 venta REAL
 )
-""") 
+""")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS ventas(
@@ -347,12 +352,15 @@ def cargar():
 # ========================================================= 
 
 def guardar_producto(
+código,
 producto,
 categoria,
+talla,
+color,
 stock,
 costo,
 venta
-): 
+):
 
     cursor.execute(
     "SELECT * FROM inventario WHERE producto=?",
@@ -384,14 +392,17 @@ venta
 
         cursor.execute("""
         INSERT INTO inventario
-        VALUES(NULL,?,?,?,?,?)
+        VALUES(NULL,?,?,?,?,?,?,?,?)
         """,(
+        código,
         producto,
         categoria,
+        talla,
+        color,
         stock,
         costo,
         venta
-        )) 
+) 
 
     conn.commit() 
 
@@ -414,7 +425,7 @@ cantidad
         return False, "Producto no existe" 
 
     # CORREGIDO: Desempaquetado explícito de los 6 campos de la tabla inventario
-    id_p, prod_p, cat_p, stock, costo, venta = d 
+    id_p, código_p, prod_p, cat_p, talla_p, color_p, stock, costo, venta = d 
 
     if cantidad > stock:
         return False, f"Stock insuficiente ({stock})" 
@@ -730,6 +741,12 @@ with tab1:
             categoria = st.text_input(
                 "Categoria"
             )
+            talla = st.text_input("Talla")
+
+            color = st.text_input("Color")
+
+            código = st.text_input("código")
+            
 
         # =====================================================
         # CAMPOS ECONÓMICOS
@@ -766,12 +783,14 @@ with tab1:
         if guardar:
 
             guardar_producto(
-                producto_final.title(),
-                categoria,
-                stock,
-                costo,
-                venta
-            )
+              producto_final.title(),
+              categoria,
+              talla,
+              color,
+              stock,
+              costo,
+              venta
+        )
 
             st.success("Producto guardado")
             st.rerun()

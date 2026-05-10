@@ -574,10 +574,11 @@ st.markdown("""
 # TABS
 # ========================================================= 
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 "📦 Inventario",
 "🛒 Ventas",
 "💸 Gastos",
+"📊 Control Inventario",
 "📑 Balance",
 "📈 Dashboard",
 "💾 Exportar"
@@ -964,10 +965,49 @@ with tab3:
     ) 
 
 # =========================================================
+# CONTROL DE INVENTARIO
+# =========================================================
+
+with tab4:
+
+    st.subheader("📊 Control de Inventario (Entradas / Salidas)")
+
+    if inv.empty:
+        st.info("No hay datos en inventario")
+    else:
+
+        # filtro por categoría
+        categorias = ["Todas"] + list(inv["categoria"].dropna().unique())
+
+        cat_sel = st.selectbox(
+            "Filtrar por categoría",
+            categorias
+        )
+
+        data = inv.copy()
+
+        if cat_sel != "Todas":
+            data = data[data["categoria"] == cat_sel]
+
+        # cálculo de entradas/salidas simuladas
+        data["valor_stock"] = data["stock"] * data["costo"]
+
+        st.metric("📦 Total productos", len(data))
+        st.metric("📦 Stock total", int(data["stock"].sum()))
+        st.metric("💰 Valor inventario", f"S/ {data['valor_stock'].sum():,.2f}")
+
+        st.divider()
+
+        st.dataframe(
+            data,
+            use_container_width=True
+        )
+        
+# =========================================================
 # BALANCE
 # ========================================================= 
 
-with tab4: 
+with tab5: 
 
     st.subheader("📑 Balance Financiero") 
 
@@ -1142,7 +1182,7 @@ with tab4:
 # DASHBOARD
 # ========================================================= 
 
-with tab5: 
+with tab6: 
 
     st.subheader("📈 Dashboard Ejecutivo") 
 
@@ -1308,7 +1348,7 @@ with tab5:
 # EXPORTAR + IMPORTAR + LIMPIAR ERP
 # =========================================================
 
-with tab6:
+with tab7:
 
     st.subheader("💾 Exportar ERP")
 

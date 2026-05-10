@@ -322,6 +322,8 @@ if file:
 # FUNCIONES
 # ========================================================= 
 
+historial_stock = []
+
 def cargar(): 
 
     return (
@@ -532,7 +534,57 @@ def deshacer_ultima_venta():
 
     if ultima: 
 
-        eliminar_venta(ultima[0]) 
+        eliminar_venta(ultima[0]) q
+        
+# ========================================================= 
+
+def reducir_stock(producto, cantidad):
+
+    cursor.execute(
+        "SELECT stock FROM inventario WHERE producto=?",
+        (producto,)
+    )
+
+    data = cursor.fetchone()
+
+    if not data:
+        return False, "Producto no existe"
+
+    stock_actual = data[0]
+
+    if cantidad > stock_actual:
+        return False, f"No hay suficiente stock ({stock_actual})"
+
+    nuevo_stock = stock_actual - cantidad
+
+    cursor.execute("""
+        UPDATE inventario
+        SET stock=?
+        WHERE producto=?
+    """, (nuevo_stock, producto))
+
+    conn.commit()
+
+    return True, "Stock reducido"
+# ========================================================= 
+
+def deshacer_stock():
+
+    if not historial_stock:
+        return False, "No hay acciones para deshacer"
+
+    producto, stock_anterior = historial_stock.pop()
+
+    cursor.execute("""
+        UPDATE inventario
+        SET stock=?
+        WHERE producto=?
+    """, (stock_anterior, producto))
+
+    conn.commit()
+
+    return True, "Acción deshecha"
+
 # =========================================================
 # LIMPIAR ERP
 # =========================================================
@@ -727,7 +779,42 @@ with tab1:
         inv,
         use_container_width=True
     )
+    st.subheader("📉 Reducir Stock")
 
+if not inv.empty:
+
+    producto_r = st.selectbox(
+        "Producto",
+        inv["producto"],
+        key="reduce_stock"
+    )
+
+    cantidad_r = st.number_input(
+        "Cantidad a reducir",
+        min_value=1
+    )
+
+    if st.button("Reducir stock"):
+
+        ok, msg = reducir_stock(producto_r, cantidad_r)
+
+        if ok:
+            st.success(msg)
+            st.rerun()
+        else:
+            st.error(msg)
+    
+ st.subheader("↩ Deshacer acción")
+
+if st.button("Deshacer último cambio"):
+
+    ok, msg = deshacer_stock()
+
+    if ok:
+        st.success(msg)
+        st.rerun()
+    else:
+        st.warning(msg)
     # =====================================================
     # ELIMINAR
     # =====================================================

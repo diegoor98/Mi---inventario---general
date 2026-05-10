@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from meta_ai_api import MetaAI # Si no usas esta libreria puedes borrarla, la mantengo por si acaso
 from io import BytesIO
 from datetime import datetime
 import sqlite3 
@@ -154,11 +153,11 @@ border-radius:12px;
 """, unsafe_allow_html=True) 
 
 # =========================================================
-# DATABASE - Usamos v4 para asegurar que cree codigo, talla y color sin errores
+# DATABASE
 # ========================================================= 
 
 conn = sqlite3.connect(
-"tulip_erp_v4.db",
+"tulip_erp.db",
 check_same_thread=False
 ) 
 
@@ -171,10 +170,7 @@ cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-codigo TEXT,
-producto TEXT,
-talla TEXT,
-color TEXT,
+producto TEXT UNIQUE,
 categoria TEXT,
 stock INTEGER,
 costo REAL,
@@ -186,10 +182,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS ventas(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 fecha TEXT,
-codigo TEXT,
 producto TEXT,
-talla TEXT,
-color TEXT,
 cantidad INTEGER,
 costo_ref REAL,
 venta_ref REAL,
@@ -207,7 +200,6 @@ monto REAL
 """) 
 
 conn.commit() 
-
 # =========================================================
 # IMPORTAR BACKUP ERP
 # =========================================================
@@ -220,51 +212,87 @@ type=["xlsx"]
 )
 
 if file:
+
     try:
+
         xls = pd.ExcelFile(file)
+
+        # =================================================
+        # INVENTARIO
+        # =================================================
+
         if "Inventario" in xls.sheet_names:
-            df_inv = pd.read_excel(xls, "Inventario")
-            cursor.execute("DELETE FROM inventario")
+
+            df_inv = pd.read_excel(
+            xls,
+            "Inventario"
+            )
+
+            cursor.execute(
+            "DELETE FROM inventario"
+            )
+
             for _,r in df_inv.iterrows():
+
                 cursor.execute("""
                 INSERT INTO inventario
-                VALUES(?,?,?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
-                str(r.get("codigo", "")),
                 str(r["producto"]),
-                str(r.get("talla", "")),
-                str(r.get("color", "")),
                 str(r["categoria"]),
                 int(r["stock"]),
                 float(r["costo"]),
                 float(r["venta"])
                 ))
 
+        # =================================================
+        # VENTAS
+        # =================================================
+
         if "Ventas" in xls.sheet_names:
-            df_ven = pd.read_excel(xls, "Ventas")
-            cursor.execute("DELETE FROM ventas")
+
+            df_ven = pd.read_excel(
+            xls,
+            "Ventas"
+            )
+
+            cursor.execute(
+            "DELETE FROM ventas"
+            )
+
             for _,r in df_ven.iterrows():
+
                 cursor.execute("""
                 INSERT INTO ventas
-                VALUES(?,?,?,?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
                 str(r["fecha"]),
-                str(r.get("codigo", "")),
                 str(r["producto"]),
-                str(r.get("talla", "")),
-                str(r.get("color", "")),
                 int(r["cantidad"]),
                 float(r["costo_ref"]),
                 float(r["venta_ref"]),
                 float(r["ganancia"])
                 ))
 
+        # =================================================
+        # GASTOS
+        # =================================================
+
         if "Gastos" in xls.sheet_names:
-            df_gas = pd.read_excel(xls, "Gastos")
-            cursor.execute("DELETE FROM gastos")
+
+            df_gas = pd.read_excel(
+            xls,
+            "Gastos"
+            )
+
+            cursor.execute(
+            "DELETE FROM gastos"
+            )
+
             for _,r in df_gas.iterrows():
+
                 cursor.execute("""
                 INSERT INTO gastos
                 VALUES(?,?,?,?)
@@ -276,10 +304,18 @@ if file:
                 ))
 
         conn.commit()
-        st.sidebar.success("Backup restaurado correctamente")
+
+        st.sidebar.success(
+        "Backup restaurado correctamente"
+        )
+
         st.rerun()
+
     except Exception as e:
-        st.sidebar.error(f"Error: {e}")
+
+        st.sidebar.error(
+        f"Error: {e}"
+        )
 
 
 # =========================================================
@@ -290,46 +326,73 @@ if "historial_stock" not in st.session_state:
     st.session_state.historial_stock = []
 
 def cargar(): 
+
     return (
-    pd.read_sql("SELECT * FROM inventario", conn), 
-    pd.read_sql("SELECT * FROM ventas", conn), 
-    pd.read_sql("SELECT * FROM gastos", conn)
+    pd.read_sql(
+    "SELECT * FROM inventario",
+    conn
+    ), 
+
+    pd.read_sql(
+    "SELECT * FROM ventas",
+    conn
+    ), 
+
+    pd.read_sql(
+    "SELECT * FROM gastos",
+    conn
+    )
     ) 
 
 # ========================================================= 
 
 def guardar_producto(
-codigo,
 producto,
-talla,
-color,
 categoria,
 stock,
 costo,
 venta
 ): 
+
     cursor.execute(
-    "SELECT * FROM inventario WHERE producto=? AND talla=? AND color=?",
-    (producto, talla, color)
+    "SELECT * FROM inventario WHERE producto=?",
+    (producto,)
     ) 
+
     existe = cursor.fetchone() 
 
     if existe: 
-        nuevo_stock = existe[6] + stock 
+
+        nuevo_stock = existe[3] + stock 
+
         cursor.execute("""
         UPDATE inventario
-        SET codigo=?,
-        categoria=?,
+        SET categoria=?,
         stock=?,
         costo=?,
         venta=?
-        WHERE producto=? AND talla=? AND color=?
-        """,(codigo, categoria, nuevo_stock, costo, venta, producto, talla, color)) 
+        WHERE producto=?
+        """,(
+        categoria,
+        nuevo_stock,
+        costo,
+        venta,
+        producto
+        )) 
+
     else: 
+
         cursor.execute("""
         INSERT INTO inventario
-        VALUES(NULL,?,?,?,?,?,?,?,?)
-        """,(codigo, producto, talla, color, categoria, stock, costo, venta)) 
+        VALUES(NULL,?,?,?,?,?)
+        """,(
+        producto,
+        categoria,
+        stock,
+        costo,
+        venta
+        )) 
+
     conn.commit() 
 
 # ========================================================= 
@@ -337,130 +400,214 @@ venta
 def registrar_venta(
 fecha,
 producto,
-talla,
-color,
 cantidad
 ): 
+
     cursor.execute(
-    "SELECT * FROM inventario WHERE producto=? AND talla=? AND color=?",
-    (producto, talla, color)
+    "SELECT * FROM inventario WHERE producto=?",
+    (producto,)
     ) 
+
     d = cursor.fetchone() 
 
     if not d:
         return False, "Producto no existe" 
 
-    id_p, cod_p, prod_p, tall_p, col_p, cat_p, stock, costo, venta = d 
+    # CORREGIDO: Desempaquetado explícito de los 6 campos de la tabla inventario
+    id_p, prod_p, cat_p, stock, costo, venta = d 
 
     if cantidad > stock:
         return False, f"Stock insuficiente ({stock})" 
 
     nuevo_stock = stock - cantidad 
-    ganancia = cantidad * (venta - costo) 
+
+    ganancia = cantidad * (
+    venta - costo
+    ) 
 
     cursor.execute("""
     UPDATE inventario
     SET stock=?
-    WHERE producto=? AND talla=? AND color=?
-    """,(nuevo_stock, producto, talla, color)) 
+    WHERE producto=?
+    """,(
+    nuevo_stock,
+    producto
+    )) 
 
     cursor.execute("""
     INSERT INTO ventas
-    VALUES(NULL,?,?,?,?,?,?,?,?,?)
-    """,(fecha, cod_p, producto, talla, color, cantidad, costo, venta, ganancia)) 
+    VALUES(NULL,?,?,?,?,?,?)
+    """,(
+    fecha,
+    producto,
+    cantidad,
+    costo,
+    venta,
+    ganancia
+    )) 
 
     conn.commit() 
+
     return True, "Venta registrada" 
 
 # ========================================================= 
 
-def registrar_gasto(fecha, concepto, monto): 
-    cursor.execute("INSERT INTO gastos VALUES(NULL,?,?,?)",(fecha, concepto, monto)) 
+def registrar_gasto(
+fecha,
+concepto,
+monto
+): 
+
+    cursor.execute("""
+    INSERT INTO gastos
+    VALUES(NULL,?,?,?)
+    """,(
+    fecha,
+    concepto,
+    monto
+    )) 
+
     conn.commit() 
 
 # ========================================================= 
 
-def eliminar_producto(producto, talla, color): 
+def eliminar_producto(producto): 
+
     cursor.execute(
-    "DELETE FROM inventario WHERE producto=? AND talla=? AND color=?",
-    (producto, talla, color)
+    "DELETE FROM inventario WHERE producto=?",
+    (producto,)
     ) 
+
     conn.commit() 
 
 # ========================================================= 
 
 def eliminar_venta(id_venta): 
-    cursor.execute("SELECT producto, talla, color, cantidad FROM ventas WHERE id=?",(id_venta,)) 
+
+    cursor.execute("""
+    SELECT producto,cantidad
+    FROM ventas
+    WHERE id=?
+    """,(id_venta,)) 
+
     venta = cursor.fetchone() 
+
     if venta: 
-        producto, talla, color, cantidad = venta 
+
+        producto,cantidad = venta 
+
         cursor.execute("""
         UPDATE inventario
         SET stock = stock + ?
-        WHERE producto=? AND talla=? AND color=?
-        """,(cantidad, producto, talla, color)) 
-        cursor.execute("DELETE FROM ventas WHERE id=?",(id_venta,)) 
+        WHERE producto=?
+        """,(cantidad,producto)) 
+
+        cursor.execute("""
+        DELETE FROM ventas
+        WHERE id=?
+        """,(id_venta,)) 
+
         conn.commit() 
 
 # ========================================================= 
 
 def eliminar_gasto(id_gasto): 
-    cursor.execute("DELETE FROM gastos WHERE id=?",(id_gasto,)) 
+
+    cursor.execute("""
+    DELETE FROM gastos
+    WHERE id=?
+    """,(id_gasto,)) 
+
     conn.commit() 
 
 # ========================================================= 
 
 def deshacer_ultima_venta(): 
-    cursor.execute("SELECT id FROM ventas ORDER BY id DESC LIMIT 1") 
+
+    cursor.execute("""
+    SELECT id
+    FROM ventas
+    ORDER BY id DESC
+    LIMIT 1
+    """) 
+
     ultima = cursor.fetchone() 
-    if ultima: eliminar_venta(ultima[0])
+
+    if ultima: 
+
+        eliminar_venta(ultima[0])
         
 # ========================================================= 
 
-def reducir_stock(producto, talla, color, cantidad):
+def reducir_stock(producto, cantidad):
+
     cursor.execute(
-        "SELECT stock FROM inventario WHERE producto=? AND talla=? AND color=?",
-        (producto, talla, color)
+        "SELECT stock FROM inventario WHERE producto=?",
+        (producto,)
     )
+
     data = cursor.fetchone()
+
     if not data:
         return False, "Producto no existe"
 
-    stock_actual = data[0] # Al ser SELECT stock solamente, el indice es 0
+    stock_actual = data[0]
+
     if cantidad > stock_actual:
         return False, f"No hay suficiente stock ({stock_actual})"
 
-    st.session_state.historial_stock.append((producto, talla, color, stock_actual))
+    # CORRECCIÓN: Guardamos en el historial antes de reducir
+    st.session_state.historial_stock.append((producto, stock_actual))
+
     nuevo_stock = stock_actual - cantidad
 
     cursor.execute("""
         UPDATE inventario
         SET stock=?
-        WHERE producto=? AND talla=? AND color=?
-    """, (nuevo_stock, producto, talla, color))
-    conn.commit()
-    return True, "Stock reducido"
+        WHERE producto=?
+    """, (nuevo_stock, producto))
 
+    conn.commit()
+
+    return True, "Stock reducido"
 # ========================================================= 
 
 def deshacer_stock():
+
+    # CORRECCIÓN: Usamos session_state para que los datos persistan
     if not st.session_state.historial_stock:
         return False, "No hay acciones para deshacer"
-    producto, talla, color, stock_anterior = st.session_state.historial_stock.pop()
+
+    producto, stock_anterior = st.session_state.historial_stock.pop()
+
     cursor.execute("""
         UPDATE inventario
         SET stock=?
-        WHERE producto=? AND talla=? AND color=?
-    """, (stock_anterior, producto, talla, color))
+        WHERE producto=?
+    """, (stock_anterior, producto))
+
     conn.commit()
+
     return True, "Acción deshecha"
 
 # =========================================================
+# LIMPIAR ERP
+# =========================================================
 
 def limpiar_erp():
-    cursor.execute("DELETE FROM inventario")
-    cursor.execute("DELETE FROM ventas")
-    cursor.execute("DELETE FROM gastos")
+
+    cursor.execute(
+    "DELETE FROM inventario"
+    )
+
+    cursor.execute(
+    "DELETE FROM ventas"
+    )
+
+    cursor.execute(
+    "DELETE FROM gastos"
+    )
+
     conn.commit()
         
 
@@ -474,7 +621,11 @@ inv, ven, gas = cargar()
 # TITULO
 # ========================================================= 
 
-st.markdown("<h1 style='text-align:center;'>🌷 Tulip ERP</h1>", unsafe_allow_html=True) 
+st.markdown("""
+<h1 style='text-align:center;'>
+🌷 Tulip ERP
+</h1>
+""", unsafe_allow_html=True) 
 
 # =========================================================
 # TABS
@@ -495,144 +646,941 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 # =========================================================
 
 with tab1:
+
     st.subheader("📦 Inventario")
+
     with st.form("inventario_form"):
+
+        # =====================================================
+        # CONTROL DE MODO
+        # =====================================================
+
         if "modo_inv" not in st.session_state:
             st.session_state.modo_inv = "Existente"
 
         c1, c2 = st.columns(2)
+
         with c1:
             if st.form_submit_button("📌 Existente"):
                 st.session_state.modo_inv = "Existente"
+
         with c2:
             if st.form_submit_button("➕ Nuevo"):
                 st.session_state.modo_inv = "Nuevo"
 
         modo = st.session_state.modo_inv
+
         st.info(f"Modo seleccionado: {modo}")
 
+        # =====================================================
+        # VARIABLES
+        # =====================================================
+
         producto_final = ""
-        talla_final = ""
-        color_final = ""
         categoria0 = ""
-        codigo_final = ""
+
+        # =====================================================
+        # EXISTENTE
+        # =====================================================
 
         if modo == "Existente":
+
             if not inv.empty:
-                inv["display"] = inv["producto"] + " (" + inv["talla"] + " - " + inv["color"] + ")"
-                seleccion = st.selectbox("Selecciona producto existente", inv["display"])
-                fila = inv[inv["display"] == seleccion].iloc[0]
-                producto_final = fila["producto"]
-                talla_final = fila["talla"]
-                color_final = fila["color"]
-                codigo_final = str(fila["codigo"])
+
+                producto_final = st.selectbox(
+                    "Selecciona producto existente",
+                    inv["producto"]
+                )
+
+                fila = inv[
+                    inv["producto"] == producto_final
+                ].iloc[0]
+
                 categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
+
             else:
+
                 st.warning("No hay productos en inventario")
+                producto_final = ""
+
+        # =====================================================
+        # NUEVO
+        # =====================================================
+
         else:
-            codigo_final = st.text_input("Código de Producto")
-            producto_final = st.text_input("Nuevo Producto")
-            talla_final = st.text_input("Talla")
-            color_final = st.text_input("Color")
+
+            producto_final = st.text_input(
+                "Nuevo Producto"
+            )
+
+        # =====================================================
+        # CATEGORIA (CORREGIDA)
+        # =====================================================
 
         if modo == "Existente" and producto_final:
-            st.text(f"Código: {codigo_final}")
-            categoria = st.text_input("Categoria", value=categoria0, disabled=True)
+
+            categoria = st.text_input(
+                "Categoria",
+                value=categoria0,
+                disabled=True
+            )
+
         else:
-            categoria = st.text_input("Categoria")
+
+            categoria = st.text_input(
+                "Categoria"
+            )
+
+        # =====================================================
+        # CAMPOS ECONÓMICOS
+        # =====================================================
 
         c1, c2, c3 = st.columns(3)
-        stock = c1.number_input("Stock", min_value=0)
-        costo = c2.number_input("Costo", min_value=0.0)
-        venta = c3.number_input("Venta", min_value=0.0)
 
-        if st.form_submit_button("Guardar"):
-            guardar_producto(codigo_final, producto_final.title(), talla_final.upper(), color_final.title(), categoria, stock, costo, venta)
+        with c1:
+            stock = st.number_input(
+                "Stock",
+                min_value=0
+            )
+
+        with c2:
+            costo = st.number_input(
+                "Costo",
+                min_value=0.0,
+                value=0.0
+            )
+
+        with c3:
+            venta = st.number_input(
+                "Venta",
+                min_value=0.0,
+                value=0.0
+            )
+
+        # =====================================================
+        # GUARDAR
+        # =====================================================
+
+        guardar = st.form_submit_button("Guardar")
+
+        if guardar:
+
+            guardar_producto(
+                producto_final.title(),
+                categoria,
+                stock,
+                costo,
+                venta
+            )
+
             st.success("Producto guardado")
             st.rerun()
 
-    st.dataframe(inv, use_container_width=True)
+    # =====================================================
+    # TABLA
+    # =====================================================
 
+    st.dataframe(
+        inv,
+        use_container_width=True
+    )
     st.subheader("📉 Reducir Stock")
+
     if not inv.empty:
-        producto_r_display = st.selectbox("Seleccionar variante para reducir", inv["display"], key="reduce_stock")
-        fila_r = inv[inv["display"] == producto_r_display].iloc[0]
-        cantidad_r = st.number_input("Cantidad a reducir", min_value=1)
+
+        producto_r = st.selectbox(
+            "Producto",
+            inv["producto"],
+            key="reduce_stock"
+        )
+
+        cantidad_r = st.number_input(
+            "Cantidad a reducir",
+            min_value=1
+        )
+
         if st.button("Reducir stock"):
-            ok, msg = reducir_stock(fila_r["producto"], fila_r["talla"], fila_r["color"], cantidad_r)
-            if ok: st.success(msg); st.rerun()
-            else: st.error(msg)
+
+            ok, msg = reducir_stock(producto_r, cantidad_r)
+
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
     
     st.subheader("↩ Deshacer acción")
+
     if st.button("Deshacer último cambio"):
+
         ok, msg = deshacer_stock()
-        if ok: st.success(msg); st.rerun()
-        else: st.warning(msg)
+
+        if ok:
+            st.success(msg)
+            st.rerun()
+        else:
+            st.warning(msg)
+    # =====================================================
+    # ELIMINAR
+    # =====================================================
 
     st.subheader("🗑 Eliminar Producto")
+
     if not inv.empty:
-        producto_eliminar_display = st.selectbox("Seleccionar variante a eliminar", inv["display"], key="eliminar")
-        fila_e = inv[inv["display"] == producto_eliminar_display].iloc[0]
+
+        producto_eliminar = st.selectbox(
+            "Producto",
+            inv["producto"],
+            key="eliminar"
+        )
+
         confirmar = st.checkbox("Estoy seguro de eliminar")
-        if st.button("Eliminar"):
-            if confirmar:
-                eliminar_producto(fila_e["producto"], fila_e["talla"], fila_e["color"])
-                st.success("Variante eliminada")
-                st.rerun()
-            else: st.warning("Debes confirmar")      
+
+        c1, c2 = st.columns([1, 5])
+
+        with c1:
+            if st.button("Eliminar"):
+
+                if confirmar:
+
+                    eliminar_producto(producto_eliminar)
+
+                    st.success("Producto eliminado")
+                    st.rerun()
+
+                else:
+                    st.warning("Debes confirmar")      
                     
 # =========================================================
 # VENTAS
 # ========================================================= 
 
 with tab2: 
-    st.subheader("🛒 Ventas") 
-    if not inv.empty: 
-        with st.form("ventas_form"): 
-            inv["v_display"] = inv["producto"] + " (" + inv["talla"] + " - " + inv["color"] + ")"
-            producto_v_display = st.selectbox("Producto", inv["v_display"]) 
-            fila_v = inv[inv["v_display"] == producto_v_display].iloc[0]
-            st.info(f"Stock disponible: {fila_v['stock']} | Código: {fila_v['codigo']}") 
 
-            cantidad = st.number_input("Cantidad", min_value=1) 
-            fecha = st.date_input("Fecha", datetime.now()) 
-            if st.form_submit_button("Vender"): 
-                ok, msg = registrar_venta(str(fecha), fila_v["producto"], fila_v["talla"], fila_v["color"], cantidad) 
-                if ok: st.success(msg); st.rerun() 
-                else: st.error(msg) 
+    st.subheader("🛒 Ventas") 
+
+    if not inv.empty: 
+
+        with st.form("ventas_form"): 
+
+            producto_v = st.selectbox(
+            "Producto",
+            inv["producto"]
+            ) 
+
+            stock_actual = int(
+            inv[
+            inv["producto"] == producto_v
+            ]["stock"].values[0]
+            ) 
+
+            st.info(
+            f"Stock disponible: {stock_actual}"
+            ) 
+
+            cantidad = st.number_input(
+            "Cantidad",
+            min_value=1
+            ) 
+
+            fecha = st.date_input(
+            "Fecha",
+            datetime.now()
+            ) 
+
+            vender = st.form_submit_button(
+            "Vender"
+            ) 
+
+            if vender: 
+
+                ok, msg = registrar_venta(
+                str(fecha),
+                producto_v,
+                cantidad
+                ) 
+
+                if ok: 
+
+                    st.success(msg)
+                    st.rerun() 
+
+                else: 
+
+                    st.error(msg) 
 
     st.divider() 
-    st.subheader("↩ Retroceder Venta") 
-    if st.button("Deshacer Última Venta"): 
-        deshacer_ultima_venta() 
-        st.success("Última venta eliminada") 
-        st.rerun() 
 
-    st.subheader("🗑 Eliminar Venta Específica") 
-    if not ven.empty: 
-        id_venta = st.selectbox("ID Venta", ven["id"]) 
-        if st.button("Eliminar Venta"): 
-            eliminar_venta(id_venta) 
-            st.success("Venta eliminada") 
+    st.subheader("↩ Retroceder Venta") 
+
+    c1,c2 = st.columns([1,5]) 
+
+    with c1: 
+
+        if st.button("Deshacer"): 
+
+            deshacer_ultima_venta() 
+
+            st.success(
+            "Última venta eliminada"
+            ) 
+
             st.rerun() 
-    st.dataframe(ven, use_container_width=True) 
+
+    st.subheader("🗑 Eliminar Venta") 
+
+    if not ven.empty: 
+
+        id_venta = st.selectbox(
+        "ID Venta",
+        ven["id"]
+        ) 
+
+        confirmar_v = st.checkbox(
+        "Confirmar eliminación venta"
+        ) 
+
+        c1,c2 = st.columns([1,5]) 
+
+        with c1: 
+
+            if st.button("Eliminar Venta"): 
+
+                if confirmar_v: 
+
+                    eliminar_venta(id_venta) 
+
+                    st.success(
+                    "Venta eliminada"
+                    ) 
+
+                    st.rerun() 
+
+                else: 
+
+                    st.warning(
+                    "Debes confirmar"
+                    ) 
+
+    st.divider() 
+
+    st.dataframe(
+    ven,
+    use_container_width=True
+    ) 
 
 # =========================================================
 # GASTOS
 # ========================================================= 
 
 with tab3: 
+
     st.subheader("💸 Gastos") 
+
     with st.form("gastos_form"): 
-        concepto = st.text_input("Concepto") 
-        monto = st.number_input("Monto", min_value=0.0) 
-        fecha_g = st.date_input("Fecha", datetime.now(), key="fecha_gasto") 
-        if st.form_submit_button("Guardar Gasto"): 
-            registrar_gasto(str(fecha_g), concepto, monto) 
-            st.success("Gasto registrado"); st.rerun() 
+
+        concepto = st.text_input(
+        "Concepto"
+        ) 
+
+        monto = st.number_input(
+        "Monto",
+        min_value=0.0
+        ) 
+
+        fecha_g = st.date_input(
+        "Fecha",
+        datetime.now(),
+        key="fecha_gasto"
+        ) 
+
+        guardar_gasto = st.form_submit_button(
+        "Guardar"
+        ) 
+
+        if guardar_gasto: 
+
+            registrar_gasto(
+            str(fecha_g),
+            concepto,
+            monto
+            ) 
+
+            st.success(
+            "Gasto registrado"
+            ) 
+
+            st.rerun() 
 
     st.divider() 
+
+    st.subheader("🗑 Eliminar Gasto") 
+
     if not gas.empty: 
-        id_gasto = st.selectbox("ID Gasto", gas["id"]) 
-        if st.button("Eliminar Gasto"): 
-            eliminar_gasto(id_gasto); st.rerun()
+
+        id_gasto = st.selectbox(
+        "ID Gasto",
+        gas["id"]
+        ) 
+
+        confirmar_gasto = st.checkbox(
+        "Confirmar eliminación gasto"
+        ) 
+
+        c1,c2 = st.columns([1,5]) 
+
+        with c1: 
+
+            if st.button("Eliminar Gasto"): 
+
+                if confirmar_gasto: 
+
+                    eliminar_gasto(id_gasto) 
+
+                    st.success(
+                    "Gasto eliminado"
+                    ) 
+
+                    st.rerun() 
+
+                else: 
+
+                    st.warning(
+                    "Debes confirmar"
+                    ) 
+
+    st.divider() 
+
+    st.dataframe(
+    gas,
+    use_container_width=True
+    ) 
+
+# =========================================================
+# CONTROL DE INVENTARIO
+# =========================================================
+
+with tab4:
+
+    st.subheader("📊 Control de Inventario (Entradas / Salidas)")
+
+    if inv.empty:
+        st.info("No hay datos en inventario")
+    else:
+
+        # filtro por categoría
+        categorias = ["Todas"] + list(inv["categoria"].dropna().unique())
+
+        cat_sel = st.selectbox(
+            "Filtrar por categoría",
+            categorias
+        )
+
+        data = inv.copy()
+
+        if cat_sel != "Todas":
+            data = data[data["categoria"] == cat_sel]
+
+        # cálculo de entradas/salidas simuladas
+        data["valor_stock"] = data["stock"] * data["costo"]
+
+        st.metric("📦 Total productos", len(data))
+        st.metric("📦 Stock total", int(data["stock"].sum()))
+        st.metric("💰 Valor inventario", f"S/ {data['valor_stock'].sum():,.2f}")
+
+        st.divider()
+
+        st.dataframe(
+            data,
+            use_container_width=True
+        )
+        
+# =========================================================
+# BALANCE
+# ========================================================= 
+
+with tab5: 
+
+    st.subheader("📑 Balance Financiero") 
+
+    tipo_balance = st.radio(
+    "Ver balance por:",
+    ["Todo","Mes","Año"],
+    horizontal=True,
+    key="tipo_bal"
+    ) 
+
+    ven_balance = ven.copy()
+    gas_balance = gas.copy() 
+
+    if not ven_balance.empty:
+        ven_balance["fecha"] = pd.to_datetime(
+        ven_balance["fecha"]
+        ) 
+
+    if not gas_balance.empty:
+        gas_balance["fecha"] = pd.to_datetime(
+        gas_balance["fecha"]
+        ) 
+
+    if tipo_balance == "Mes": 
+
+        meses = {
+        1:"Enero",
+        2:"Febrero",
+        3:"Marzo",
+        4:"Abril",
+        5:"Mayo",
+        6:"Junio",
+        7:"Julio",
+        8:"Agosto",
+        9:"Septiembre",
+        10:"Octubre",
+        11:"Noviembre",
+        12:"Diciembre"
+        } 
+
+        c1,c2 = st.columns(2) 
+
+        with c1: 
+
+            mes = st.selectbox(
+            "Mes",
+            list(meses.keys()),
+            format_func=lambda x: meses[x]
+            ) 
+
+        with c2: 
+
+            anio = st.selectbox(
+            "Año",
+            sorted(
+            ven_balance["fecha"]
+            .dt.year.unique()
+            ) if not ven_balance.empty
+            else [datetime.now().year]
+            ) 
+
+        if not ven_balance.empty: 
+
+            ven_balance = ven_balance[
+            (ven_balance["fecha"].dt.month == mes) &
+            (ven_balance["fecha"].dt.year == anio)
+            ] 
+
+        if not gas_balance.empty: 
+
+            gas_balance = gas_balance[
+            (gas_balance["fecha"].dt.month == mes) &
+            (gas_balance["fecha"].dt.year == anio)
+            ] 
+
+    elif tipo_balance == "Año": 
+
+        anio = st.selectbox(
+        "Año",
+        sorted(
+        ven_balance["fecha"]
+        .dt.year.unique()
+        ) if not ven_balance.empty
+        else [datetime.now().year],
+        key="anio_bal"
+        ) 
+
+        if not ven_balance.empty: 
+
+            ven_balance = ven_balance[
+            ven_balance["fecha"].dt.year == anio
+            ] 
+
+        if not gas_balance.empty: 
+
+            gas_balance = gas_balance[
+            gas_balance["fecha"].dt.year == anio
+            ] 
+
+    ventas_total = (
+    ven_balance["venta_ref"].sum()
+    if not ven_balance.empty else 0
+    ) 
+
+    ganancias = (
+    ven_balance["ganancia"].sum()
+    if not ven_balance.empty else 0
+    ) 
+
+    gastos_total = (
+    gas_balance["monto"].sum()
+    if not gas_balance.empty else 0
+    ) 
+
+    utilidad = ganancias - gastos_total 
+
+    stock_total = (
+    inv["stock"].sum()
+    if not inv.empty else 0
+    ) 
+
+    inventario_costo = (
+    (inv["stock"] * inv["costo"]).sum()
+    if not inv.empty else 0
+    ) 
+
+    inventario_venta = (
+    (inv["stock"] * inv["venta"]).sum()
+    if not inv.empty else 0
+    ) 
+
+    c1,c2,c3,c4 = st.columns(4) 
+
+    c1.metric(
+    "💰 Ventas",
+    f"S/ {ventas_total:,.2f}"
+    ) 
+
+    c2.metric(
+    "📈 Ganancias",
+    f"S/ {ganancias:,.2f}"
+    ) 
+
+    c3.metric(
+    "💸 Gastos",
+    f"S/ {gastos_total:,.2f}"
+    ) 
+
+    c4.metric(
+    "🏦 Utilidad",
+    f"S/ {utilidad:,.2f}"
+    ) 
+
+    c5,c6,c7 = st.columns(3) 
+
+    c5.metric(
+    "📦 Stock",
+    stock_total
+    ) 
+
+    c6.metric(
+    "🏭 Inventario Costo",
+    f"S/ {inventario_costo:,.2f}"
+    ) 
+
+    c7.metric(
+    "🏪 Inventario Valorizado",
+    f"S/ {inventario_venta:,.2f}"
+    ) 
+
+# =========================================================
+# DASHBOARD
+# ========================================================= 
+
+with tab6: 
+
+    st.subheader("📈 Dashboard Ejecutivo") 
+
+    tipo_dashboard = st.radio(
+    "Ver dashboard por:",
+    ["Todo","Mes","Año"],
+    horizontal=True,
+    key="tipo_dash"
+    ) 
+
+    ven_dash = ven.copy() 
+
+    if not ven_dash.empty:
+        ven_dash["fecha"] = pd.to_datetime(
+        ven_dash["fecha"]
+        ) 
+
+    if tipo_dashboard == "Mes": 
+
+        meses = {
+        1:"Enero",
+        2:"Febrero",
+        3:"Marzo",
+        4:"Abril",
+        5:"Mayo",
+        6:"Junio",
+        7:"Julio",
+        8:"Agosto",
+        9:"Septiembre",
+        10:"Octubre",
+        11:"Noviembre",
+        12:"Diciembre"
+        } 
+
+        c1,c2 = st.columns(2) 
+
+        with c1: 
+
+            mes_d = st.selectbox(
+            "Mes Dashboard",
+            list(meses.keys()),
+            format_func=lambda x: meses[x]
+            ) 
+
+        with c2: 
+
+            anio_d = st.selectbox(
+            "Año Dashboard",
+            sorted(
+            ven_dash["fecha"]
+            .dt.year.unique()
+            ) if not ven_dash.empty
+            else [datetime.now().year]
+            ) 
+
+        if not ven_dash.empty: 
+
+            ven_dash = ven_dash[
+            (ven_dash["fecha"].dt.month == mes_d) &
+            (ven_dash["fecha"].dt.year == anio_d)
+            ] 
+
+    elif tipo_dashboard == "Año": 
+
+        anio_d = st.selectbox(
+        "Año Dashboard",
+        sorted(
+        ven_dash["fecha"]
+        .dt.year.unique()
+        ) if not ven_dash.empty
+        else [datetime.now().year],
+        key="anio_dash_sel"
+        ) 
+
+        if not ven_dash.empty: 
+
+            ven_dash = ven_dash[
+            ven_dash["fecha"].dt.year == anio_d
+            ] 
+
+    if not ven_dash.empty: 
+
+        fig1 = px.bar(
+        ven_dash.groupby("producto")[
+        "ganancia"
+        ].sum().reset_index(), 
+
+        x="producto",
+        y="ganancia", 
+
+        color="producto", 
+
+        text_auto=True, 
+
+        template="plotly_dark", 
+
+        color_discrete_sequence=
+        px.colors.qualitative.Bold
+        ) 
+
+        st.plotly_chart(
+        fig1,
+        use_container_width=True
+        ) 
+
+        pie = px.pie(
+        ven_dash.groupby("producto")[
+        "cantidad"
+        ].sum().reset_index(), 
+
+        names="producto",
+        values="cantidad", 
+
+        hole=0.4, 
+
+        template="plotly_dark", 
+
+        color_discrete_sequence=
+        px.colors.qualitative.Vivid
+        ) 
+
+        st.plotly_chart(
+        pie,
+        use_container_width=True
+        ) 
+
+        ventas_fecha = ven_dash.groupby(
+        "fecha"
+        )["ganancia"].sum().reset_index() 
+
+        linea = px.line(
+        ventas_fecha,
+        x="fecha",
+        y="ganancia",
+        markers=True,
+        template="plotly_dark"
+        ) 
+
+        st.plotly_chart(
+        linea,
+        use_container_width=True
+        ) 
+
+        top = ven_dash.groupby(
+        "producto"
+        )["cantidad"].sum().reset_index() 
+
+        top = top.sort_values(
+        by="cantidad",
+        ascending=False
+        ) 
+
+        st.subheader(
+        "🏆 Top Productos"
+        ) 
+
+        st.dataframe(
+        top,
+        use_container_width=True
+        ) 
+            
+# =========================================================
+# EXPORTAR + IMPORTAR + LIMPIAR ERP
+# =========================================================
+
+with tab7:
+
+    st.subheader("💾 Exportar ERP")
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+
+        inv.to_excel(writer, index=False, sheet_name="Inventario")
+        ven.to_excel(writer, index=False, sheet_name="Ventas")
+        gas.to_excel(writer, index=False, sheet_name="Gastos")
+
+    st.download_button(
+        "📥 Descargar ERP",
+        output.getvalue(),
+        "tulip_erp.xlsx"
+    )
+
+    st.divider()
+
+    # =====================================================
+    # IMPORTAR ERP ROBUSTO (NO SE ROMPE SI FALTAN DATOS)
+    # =====================================================
+
+    st.subheader("📥 Importar ERP desde Excel")
+
+    file = st.file_uploader(
+        "Subir archivo Excel",
+        type=["xlsx"]
+    )
+
+    if file:
+
+        try:
+            xls = pd.ExcelFile(file)
+
+            # =================================================
+            # INVENTARIO
+            # =================================================
+            if "Inventario" in xls.sheet_names:
+
+                df_inv = pd.read_excel(xls, "Inventario")
+                df_inv.columns = [c.lower() for c in df_inv.columns]
+
+                cursor.execute("DELETE FROM inventario")
+
+                for _, r in df_inv.iterrows():
+
+                    producto = str(r.get("producto", "")).title()
+                    categoria = str(r.get("categoria", ""))
+
+                    stock = int(r.get("stock", 0) or 0)
+                    costo = float(r.get("costo", 0) or 0)
+                    venta = float(r.get("venta", 0) or 0)
+
+                    if producto.strip() == "":
+                        continue
+
+                    cursor.execute("""
+                    INSERT INTO inventario
+                    VALUES(NULL,?,?,?,?,?)
+                    """, (
+                        producto,
+                        categoria,
+                        stock,
+                        costo,
+                        venta
+                    ))
+
+            # =================================================
+            # VENTAS
+            # =================================================
+            if "Ventas" in xls.sheet_names:
+
+                df_ven = pd.read_excel(xls, "Ventas")
+                df_ven.columns = [c.lower() for c in df_ven.columns]
+
+                cursor.execute("DELETE FROM ventas")
+
+                for _, r in df_ven.iterrows():
+
+                    cursor.execute("""
+                    INSERT INTO ventas
+                    VALUES(NULL,?,?,?,?,?,?)
+                    """, (
+                        str(r.get("fecha", "")),
+                        str(r.get("producto", "")),
+                        int(r.get("cantidad", 0) or 0),
+                        float(r.get("costo_ref", 0) or 0),
+                        float(r.get("venta_ref", 0) or 0),
+                        float(r.get("ganancia", 0) or 0)
+                    ))
+
+            # =================================================
+            # GASTOS
+            # =================================================
+            if "Gastos" in xls.sheet_names:
+
+                df_gas = pd.read_excel(xls, "Gastos")
+                df_gas.columns = [c.lower() for c in df_gas.columns]
+
+                cursor.execute("DELETE FROM gastos")
+
+                for _, r in df_gas.iterrows():
+
+                    cursor.execute("""
+                    INSERT INTO gastos
+                    VALUES(NULL,?,?,?)
+                    """, (
+                        str(r.get("fecha", "")),
+                        str(r.get("concepto", "")),
+                        float(r.get("monto", 0) or 0)
+                    ))
+
+            conn.commit()
+
+            st.success("📦 Backup importado correctamente")
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"Error al importar: {e}")
+
+    st.divider()
+
+    # =====================================================
+    # LIMPIAR ERP
+    # =====================================================
+
+    st.subheader("🧹 Limpiar ERP")
+
+    st.warning("⚠ Esto eliminará TODO el sistema")
+
+    confirmar = st.checkbox("Confirmo limpiar todo")
+
+    if st.button("🧨 Limpiar ERP"):
+
+        if confirmar:
+
+            limpiar_erp()
+            st.success("ERP limpiado correctamente")
+            st.rerun()
+
+        else:
+            st.error("Debes confirmar primero")

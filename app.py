@@ -164,13 +164,30 @@ check_same_thread=False
 cursor = conn.cursor() 
 
 # =========================================================
+# PARCHE DE COMPATIBILIDAD (Arregla tabla de 6 columnas)
+# =========================================================
+try:
+    # Revisa si la columna talla existe en inventario
+    cursor.execute("SELECT talla FROM inventario LIMIT 1")
+except sqlite3.OperationalError:
+    # Si da error, agregamos las columnas faltantes a inventario
+    cursor.execute("ALTER TABLE inventario ADD COLUMN talla TEXT DEFAULT ''")
+    cursor.execute("ALTER TABLE inventario ADD COLUMN color TEXT DEFAULT ''")
+    # Agregamos las columnas faltantes a ventas
+    cursor.execute("ALTER TABLE ventas ADD COLUMN talla TEXT DEFAULT ''")
+    cursor.execute("ALTER TABLE ventas ADD COLUMN color TEXT DEFAULT ''")
+    conn.commit()
+
+# =========================================================
 # TABLAS
 # ========================================================= 
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-producto TEXT UNIQUE,
+producto TEXT,
+talla TEXT,
+color TEXT,
 categoria TEXT,
 stock INTEGER,
 costo REAL,
@@ -183,6 +200,8 @@ CREATE TABLE IF NOT EXISTS ventas(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 fecha TEXT,
 producto TEXT,
+talla TEXT,
+color TEXT,
 cantidad INTEGER,
 costo_ref REAL,
 venta_ref REAL,
@@ -236,10 +255,12 @@ if file:
 
                 cursor.execute("""
                 INSERT INTO inventario
-                VALUES(?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
                 str(r["producto"]),
+                str(r.get("talla", "")),
+                str(r.get("color", "")),
                 str(r["categoria"]),
                 int(r["stock"]),
                 float(r["costo"]),
@@ -265,11 +286,13 @@ if file:
 
                 cursor.execute("""
                 INSERT INTO ventas
-                VALUES(?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?,?)
                 """,(
                 int(r["id"]),
                 str(r["fecha"]),
                 str(r["producto"]),
+                str(r.get("talla", "")),
+                str(r.get("color", "")),
                 int(r["cantidad"]),
                 float(r["costo_ref"]),
                 float(r["venta_ref"]),
@@ -348,6 +371,8 @@ def cargar():
 
 def guardar_producto(
 producto,
+talla,
+color,
 categoria,
 stock,
 costo,
@@ -355,15 +380,15 @@ venta
 ): 
 
     cursor.execute(
-    "SELECT * FROM inventario WHERE producto=?",
-    (producto,)
+    "SELECT * FROM inventario WHERE producto=? AND talla=? AND color=?",
+    (producto, talla, color)
     ) 
 
     existe = cursor.fetchone() 
 
     if existe: 
 
-        nuevo_stock = existe[3] + stock 
+        nuevo_stock = existe[5] + stock 
 
         cursor.execute("""
         UPDATE inventario
@@ -371,22 +396,26 @@ venta
         stock=?,
         costo=?,
         venta=?
-        WHERE producto=?
+        WHERE producto=? AND talla=? AND color=?
         """,(
         categoria,
         nuevo_stock,
         costo,
         venta,
-        producto
+        producto,
+        talla,
+        color
         )) 
 
     else: 
 
         cursor.execute("""
         INSERT INTO inventario
-        VALUES(NULL,?,?,?,?,?)
+        VALUES(NULL,?,?,?,?,?,?,?)
         """,(
         producto,
+        talla,
+        color,
         categoria,
         stock,
         costo,
@@ -400,12 +429,14 @@ venta
 def registrar_venta(
 fecha,
 producto,
+talla,
+color,
 cantidad
 ): 
 
     cursor.execute(
-    "SELECT * FROM inventario WHERE producto=?",
-    (producto,)
+    "SELECT * FROM inventario WHERE producto=? AND talla=? AND color=?",
+    (producto, talla, color)
     ) 
 
     d = cursor.fetchone() 
@@ -413,8 +444,7 @@ cantidad
     if not d:
         return False, "Producto no existe" 
 
-    # CORREGIDO: Desempaquetado explícito de los 6 campos de la tabla inventario
-    id_p, prod_p, cat_p, stock, costo, venta = d 
+    id_p, prod_p, tall_p, col_p, cat_p, stock, costo, venta = d 
 
     if cantidad > stock:
         return False, f"Stock insuficiente ({stock})" 
@@ -428,18 +458,22 @@ cantidad
     cursor.execute("""
     UPDATE inventario
     SET stock=?
-    WHERE producto=?
+    WHERE producto=? AND talla=? AND color=?
     """,(
     nuevo_stock,
-    producto
+    producto,
+    talla,
+    color
     )) 
 
     cursor.execute("""
     INSERT INTO ventas
-    VALUES(NULL,?,?,?,?,?,?)
+    VALUES(NULL,?,?,?,?,?,?,?,?)
     """,(
     fecha,
     producto,
+    talla,
+    color,
     cantidad,
     costo,
     venta,
@@ -471,11 +505,11 @@ monto
 
 # ========================================================= 
 
-def eliminar_producto(producto): 
+def eliminar_producto(producto, talla, color): 
 
     cursor.execute(
-    "DELETE FROM inventario WHERE producto=?",
-    (producto,)
+    "DELETE FROM inventario WHERE producto=? AND talla=? AND color=?",
+    (producto, talla, color)
     ) 
 
     conn.commit() 
@@ -485,7 +519,7 @@ def eliminar_producto(producto):
 def eliminar_venta(id_venta): 
 
     cursor.execute("""
-    SELECT producto,cantidad
+    SELECT producto, talla, color, cantidad
     FROM ventas
     WHERE id=?
     """,(id_venta,)) 
@@ -494,13 +528,13 @@ def eliminar_venta(id_venta):
 
     if venta: 
 
-        producto,cantidad = venta 
+        producto, talla, color, cantidad = venta 
 
         cursor.execute("""
         UPDATE inventario
         SET stock = stock + ?
-        WHERE producto=?
-        """,(cantidad,producto)) 
+        WHERE producto=? AND talla=? AND color=?
+        """,(cantidad, producto, talla, color)) 
 
         cursor.execute("""
         DELETE FROM ventas
@@ -539,11 +573,11 @@ def deshacer_ultima_venta():
         
 # ========================================================= 
 
-def reducir_stock(producto, cantidad):
+def reducir_stock(producto, talla, color, cantidad):
 
     cursor.execute(
-        "SELECT stock FROM inventario WHERE producto=?",
-        (producto,)
+        "SELECT stock FROM inventario WHERE producto=? AND talla=? AND color=?",
+        (producto, talla, color)
     )
 
     data = cursor.fetchone()
@@ -551,21 +585,20 @@ def reducir_stock(producto, cantidad):
     if not data:
         return False, "Producto no existe"
 
-    stock_actual = data[0]
+    stock_actual = data[5] # Ajustado al indice de la nueva tabla
 
     if cantidad > stock_actual:
         return False, f"No hay suficiente stock ({stock_actual})"
 
-    # CORRECCIÓN: Guardamos en el historial antes de reducir
-    st.session_state.historial_stock.append((producto, stock_actual))
+    st.session_state.historial_stock.append((producto, talla, color, stock_actual))
 
     nuevo_stock = stock_actual - cantidad
 
     cursor.execute("""
         UPDATE inventario
         SET stock=?
-        WHERE producto=?
-    """, (nuevo_stock, producto))
+        WHERE producto=? AND talla=? AND color=?
+    """, (nuevo_stock, producto, talla, color))
 
     conn.commit()
 
@@ -574,17 +607,16 @@ def reducir_stock(producto, cantidad):
 
 def deshacer_stock():
 
-    # CORRECCIÓN: Usamos session_state para que los datos persistan
     if not st.session_state.historial_stock:
         return False, "No hay acciones para deshacer"
 
-    producto, stock_anterior = st.session_state.historial_stock.pop()
+    producto, talla, color, stock_anterior = st.session_state.historial_stock.pop()
 
     cursor.execute("""
         UPDATE inventario
         SET stock=?
-        WHERE producto=?
-    """, (stock_anterior, producto))
+        WHERE producto=? AND talla=? AND color=?
+    """, (stock_anterior, producto, talla, color))
 
     conn.commit()
 
@@ -651,10 +683,6 @@ with tab1:
 
     with st.form("inventario_form"):
 
-        # =====================================================
-        # CONTROL DE MODO
-        # =====================================================
-
         if "modo_inv" not in st.session_state:
             st.session_state.modo_inv = "Existente"
 
@@ -672,30 +700,28 @@ with tab1:
 
         st.info(f"Modo seleccionado: {modo}")
 
-        # =====================================================
-        # VARIABLES
-        # =====================================================
-
         producto_final = ""
+        talla_final = ""
+        color_final = ""
         categoria0 = ""
-
-        # =====================================================
-        # EXISTENTE
-        # =====================================================
 
         if modo == "Existente":
 
             if not inv.empty:
-
-                producto_final = st.selectbox(
+                # Se crea una etiqueta que incluya talla y color para diferenciar
+                inv["display"] = inv["producto"] + " (" + inv["talla"] + " - " + inv["color"] + ")"
+                seleccion = st.selectbox(
                     "Selecciona producto existente",
-                    inv["producto"]
+                    inv["display"]
                 )
 
                 fila = inv[
-                    inv["producto"] == producto_final
+                    inv["display"] == seleccion
                 ].iloc[0]
 
+                producto_final = fila["producto"]
+                talla_final = fila["talla"]
+                color_final = fila["color"]
                 categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
 
             else:
@@ -703,19 +729,11 @@ with tab1:
                 st.warning("No hay productos en inventario")
                 producto_final = ""
 
-        # =====================================================
-        # NUEVO
-        # =====================================================
-
         else:
 
-            producto_final = st.text_input(
-                "Nuevo Producto"
-            )
-
-        # =====================================================
-        # CATEGORIA (CORREGIDA)
-        # =====================================================
+            producto_final = st.text_input("Nuevo Producto")
+            talla_final = st.text_input("Talla")
+            color_final = st.text_input("Color")
 
         if modo == "Existente" and producto_final:
 
@@ -730,10 +748,6 @@ with tab1:
             categoria = st.text_input(
                 "Categoria"
             )
-
-        # =====================================================
-        # CAMPOS ECONÓMICOS
-        # =====================================================
 
         c1, c2, c3 = st.columns(3)
 
@@ -757,16 +771,14 @@ with tab1:
                 value=0.0
             )
 
-        # =====================================================
-        # GUARDAR
-        # =====================================================
-
         guardar = st.form_submit_button("Guardar")
 
         if guardar:
 
             guardar_producto(
                 producto_final.title(),
+                talla_final.upper(),
+                color_final.title(),
                 categoria,
                 stock,
                 costo,
@@ -776,10 +788,6 @@ with tab1:
             st.success("Producto guardado")
             st.rerun()
 
-    # =====================================================
-    # TABLA
-    # =====================================================
-
     st.dataframe(
         inv,
         use_container_width=True
@@ -788,11 +796,13 @@ with tab1:
 
     if not inv.empty:
 
-        producto_r = st.selectbox(
-            "Producto",
-            inv["producto"],
+        producto_r_display = st.selectbox(
+            "Seleccionar variante para reducir",
+            inv["display"] if "display" in inv.columns else inv["producto"],
             key="reduce_stock"
         )
+        
+        fila_r = inv[inv["display"] == producto_r_display].iloc[0]
 
         cantidad_r = st.number_input(
             "Cantidad a reducir",
@@ -801,7 +811,7 @@ with tab1:
 
         if st.button("Reducir stock"):
 
-            ok, msg = reducir_stock(producto_r, cantidad_r)
+            ok, msg = reducir_stock(fila_r["producto"], fila_r["talla"], fila_r["color"], cantidad_r)
 
             if ok:
                 st.success(msg)
@@ -820,19 +830,18 @@ with tab1:
             st.rerun()
         else:
             st.warning(msg)
-    # =====================================================
-    # ELIMINAR
-    # =====================================================
 
     st.subheader("🗑 Eliminar Producto")
 
     if not inv.empty:
 
-        producto_eliminar = st.selectbox(
-            "Producto",
-            inv["producto"],
+        producto_eliminar_display = st.selectbox(
+            "Seleccionar variante a eliminar",
+            inv["display"],
             key="eliminar"
         )
+        
+        fila_e = inv[inv["display"] == producto_eliminar_display].iloc[0]
 
         confirmar = st.checkbox("Estoy seguro de eliminar")
 
@@ -843,9 +852,9 @@ with tab1:
 
                 if confirmar:
 
-                    eliminar_producto(producto_eliminar)
+                    eliminar_producto(fila_e["producto"], fila_e["talla"], fila_e["color"])
 
-                    st.success("Producto eliminado")
+                    st.success("Variante eliminada")
                     st.rerun()
 
                 else:
@@ -862,20 +871,17 @@ with tab2:
     if not inv.empty: 
 
         with st.form("ventas_form"): 
-
-            producto_v = st.selectbox(
+            
+            inv["v_display"] = inv["producto"] + " (" + inv["talla"] + " - " + inv["color"] + ")"
+            producto_v_display = st.selectbox(
             "Producto",
-            inv["producto"]
+            inv["v_display"]
             ) 
 
-            stock_actual = int(
-            inv[
-            inv["producto"] == producto_v
-            ]["stock"].values[0]
-            ) 
+            fila_v = inv[inv["v_display"] == producto_v_display].iloc[0]
 
             st.info(
-            f"Stock disponible: {stock_actual}"
+            f"Stock disponible: {fila_v['stock']}"
             ) 
 
             cantidad = st.number_input(
@@ -896,7 +902,9 @@ with tab2:
 
                 ok, msg = registrar_venta(
                 str(fecha),
-                producto_v,
+                fila_v["producto"],
+                fila_v["talla"],
+                fila_v["color"],
                 cantidad
                 ) 
 
@@ -1068,7 +1076,6 @@ with tab4:
         st.info("No hay datos en inventario")
     else:
 
-        # filtro por categoría
         categorias = ["Todas"] + list(inv["categoria"].dropna().unique())
 
         cat_sel = st.selectbox(
@@ -1081,10 +1088,9 @@ with tab4:
         if cat_sel != "Todas":
             data = data[data["categoria"] == cat_sel]
 
-        # cálculo de entradas/salidas simuladas
         data["valor_stock"] = data["stock"] * data["costo"]
 
-        st.metric("📦 Total productos", len(data))
+        st.metric("📦 Total variantes", len(data))
         st.metric("📦 Stock total", int(data["stock"].sum()))
         st.metric("💰 Valor inventario", f"S/ {data['valor_stock'].sum():,.2f}")
 
@@ -1126,149 +1132,52 @@ with tab5:
     if tipo_balance == "Mes": 
 
         meses = {
-        1:"Enero",
-        2:"Febrero",
-        3:"Marzo",
-        4:"Abril",
-        5:"Mayo",
-        6:"Junio",
-        7:"Julio",
-        8:"Agosto",
-        9:"Septiembre",
-        10:"Octubre",
-        11:"Noviembre",
-        12:"Diciembre"
+        1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio",
+        7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"
         } 
 
         c1,c2 = st.columns(2) 
 
         with c1: 
-
-            mes = st.selectbox(
-            "Mes",
-            list(meses.keys()),
-            format_func=lambda x: meses[x]
-            ) 
+            mes = st.selectbox("Mes", list(meses.keys()), format_func=lambda x: meses[x]) 
 
         with c2: 
-
-            anio = st.selectbox(
-            "Año",
-            sorted(
-            ven_balance["fecha"]
-            .dt.year.unique()
-            ) if not ven_balance.empty
-            else [datetime.now().year]
-            ) 
+            anio = st.selectbox("Año", sorted(ven_balance["fecha"].dt.year.unique()) if not ven_balance.empty else [datetime.now().year]) 
 
         if not ven_balance.empty: 
-
-            ven_balance = ven_balance[
-            (ven_balance["fecha"].dt.month == mes) &
-            (ven_balance["fecha"].dt.year == anio)
-            ] 
+            ven_balance = ven_balance[(ven_balance["fecha"].dt.month == mes) & (ven_balance["fecha"].dt.year == anio)] 
 
         if not gas_balance.empty: 
-
-            gas_balance = gas_balance[
-            (gas_balance["fecha"].dt.month == mes) &
-            (gas_balance["fecha"].dt.year == anio)
-            ] 
+            gas_balance = gas_balance[(gas_balance["fecha"].dt.month == mes) & (gas_balance["fecha"].dt.year == anio)] 
 
     elif tipo_balance == "Año": 
 
-        anio = st.selectbox(
-        "Año",
-        sorted(
-        ven_balance["fecha"]
-        .dt.year.unique()
-        ) if not ven_balance.empty
-        else [datetime.now().year],
-        key="anio_bal"
-        ) 
+        anio = st.selectbox("Año", sorted(ven_balance["fecha"].dt.year.unique()) if not ven_balance.empty else [datetime.now().year], key="anio_bal") 
 
         if not ven_balance.empty: 
-
-            ven_balance = ven_balance[
-            ven_balance["fecha"].dt.year == anio
-            ] 
+            ven_balance = ven_balance[ven_balance["fecha"].dt.year == anio] 
 
         if not gas_balance.empty: 
+            gas_balance = gas_balance[gas_balance["fecha"].dt.year == anio] 
 
-            gas_balance = gas_balance[
-            gas_balance["fecha"].dt.year == anio
-            ] 
-
-    ventas_total = (
-    ven_balance["venta_ref"].sum()
-    if not ven_balance.empty else 0
-    ) 
-
-    ganancias = (
-    ven_balance["ganancia"].sum()
-    if not ven_balance.empty else 0
-    ) 
-
-    gastos_total = (
-    gas_balance["monto"].sum()
-    if not gas_balance.empty else 0
-    ) 
-
+    ventas_total = ven_balance["venta_ref"].sum() if not ven_balance.empty else 0
+    ganancias = ven_balance["ganancia"].sum() if not ven_balance.empty else 0
+    gastos_total = gas_balance["monto"].sum() if not gas_balance.empty else 0
     utilidad = ganancias - gastos_total 
-
-    stock_total = (
-    inv["stock"].sum()
-    if not inv.empty else 0
-    ) 
-
-    inventario_costo = (
-    (inv["stock"] * inv["costo"]).sum()
-    if not inv.empty else 0
-    ) 
-
-    inventario_venta = (
-    (inv["stock"] * inv["venta"]).sum()
-    if not inv.empty else 0
-    ) 
+    stock_total = inv["stock"].sum() if not inv.empty else 0
+    inventario_costo = (inv["stock"] * inv["costo"]).sum() if not inv.empty else 0
+    inventario_venta = (inv["stock"] * inv["venta"]).sum() if not inv.empty else 0
 
     c1,c2,c3,c4 = st.columns(4) 
-
-    c1.metric(
-    "💰 Ventas",
-    f"S/ {ventas_total:,.2f}"
-    ) 
-
-    c2.metric(
-    "📈 Ganancias",
-    f"S/ {ganancias:,.2f}"
-    ) 
-
-    c3.metric(
-    "💸 Gastos",
-    f"S/ {gastos_total:,.2f}"
-    ) 
-
-    c4.metric(
-    "🏦 Utilidad",
-    f"S/ {utilidad:,.2f}"
-    ) 
+    c1.metric("💰 Ventas", f"S/ {ventas_total:,.2f}") 
+    c2.metric("📈 Ganancias", f"S/ {ganancias:,.2f}") 
+    c3.metric("💸 Gastos", f"S/ {gastos_total:,.2f}") 
+    c4.metric("🏦 Utilidad", f"S/ {utilidad:,.2f}") 
 
     c5,c6,c7 = st.columns(3) 
-
-    c5.metric(
-    "📦 Stock",
-    stock_total
-    ) 
-
-    c6.metric(
-    "🏭 Inventario Costo",
-    f"S/ {inventario_costo:,.2f}"
-    ) 
-
-    c7.metric(
-    "🏪 Inventario Valorizado",
-    f"S/ {inventario_venta:,.2f}"
-    ) 
+    c5.metric("📦 Stock", stock_total) 
+    c6.metric("🏭 Inventario Costo", f"S/ {inventario_costo:,.2f}") 
+    c7.metric("🏪 Inventario Valorizado", f"S/ {inventario_venta:,.2f}") 
 
 # =========================================================
 # DASHBOARD
@@ -1278,164 +1187,29 @@ with tab6:
 
     st.subheader("📈 Dashboard Ejecutivo") 
 
-    tipo_dashboard = st.radio(
-    "Ver dashboard por:",
-    ["Todo","Mes","Año"],
-    horizontal=True,
-    key="tipo_dash"
-    ) 
+    tipo_dashboard = st.radio("Ver dashboard por:", ["Todo","Mes","Año"], horizontal=True, key="tipo_dash") 
 
     ven_dash = ven.copy() 
 
     if not ven_dash.empty:
-        ven_dash["fecha"] = pd.to_datetime(
-        ven_dash["fecha"]
-        ) 
+        ven_dash["fecha"] = pd.to_datetime(ven_dash["fecha"]) 
 
     if tipo_dashboard == "Mes": 
-
-        meses = {
-        1:"Enero",
-        2:"Febrero",
-        3:"Marzo",
-        4:"Abril",
-        5:"Mayo",
-        6:"Junio",
-        7:"Julio",
-        8:"Agosto",
-        9:"Septiembre",
-        10:"Octubre",
-        11:"Noviembre",
-        12:"Diciembre"
-        } 
-
         c1,c2 = st.columns(2) 
-
         with c1: 
-
-            mes_d = st.selectbox(
-            "Mes Dashboard",
-            list(meses.keys()),
-            format_func=lambda x: meses[x]
-            ) 
-
+            mes_d = st.selectbox("Mes Dashboard", list(meses.keys()), format_func=lambda x: meses[x], key="md") 
         with c2: 
-
-            anio_d = st.selectbox(
-            "Año Dashboard",
-            sorted(
-            ven_dash["fecha"]
-            .dt.year.unique()
-            ) if not ven_dash.empty
-            else [datetime.now().year]
-            ) 
-
+            anio_d = st.selectbox("Año Dashboard", sorted(ven_dash["fecha"].dt.year.unique()) if not ven_dash.empty else [datetime.now().year], key="ad") 
         if not ven_dash.empty: 
-
-            ven_dash = ven_dash[
-            (ven_dash["fecha"].dt.month == mes_d) &
-            (ven_dash["fecha"].dt.year == anio_d)
-            ] 
-
-    elif tipo_dashboard == "Año": 
-
-        anio_d = st.selectbox(
-        "Año Dashboard",
-        sorted(
-        ven_dash["fecha"]
-        .dt.year.unique()
-        ) if not ven_dash.empty
-        else [datetime.now().year],
-        key="anio_dash_sel"
-        ) 
-
-        if not ven_dash.empty: 
-
-            ven_dash = ven_dash[
-            ven_dash["fecha"].dt.year == anio_d
-            ] 
+            ven_dash = ven_dash[(ven_dash["fecha"].dt.month == mes_d) & (ven_dash["fecha"].dt.year == anio_d)] 
 
     if not ven_dash.empty: 
+        fig1 = px.bar(ven_dash.groupby("producto")["ganancia"].sum().reset_index(), x="producto", y="ganancia", color="producto", text_auto=True, template="plotly_dark") 
+        st.plotly_chart(fig1, use_container_width=True) 
 
-        fig1 = px.bar(
-        ven_dash.groupby("producto")[
-        "ganancia"
-        ].sum().reset_index(), 
+        pie = px.pie(ven_dash.groupby("producto")["cantidad"].sum().reset_index(), names="producto", values="cantidad", hole=0.4, template="plotly_dark") 
+        st.plotly_chart(pie, use_container_width=True) 
 
-        x="producto",
-        y="ganancia", 
-
-        color="producto", 
-
-        text_auto=True, 
-
-        template="plotly_dark", 
-
-        color_discrete_sequence=
-        px.colors.qualitative.Bold
-        ) 
-
-        st.plotly_chart(
-        fig1,
-        use_container_width=True
-        ) 
-
-        pie = px.pie(
-        ven_dash.groupby("producto")[
-        "cantidad"
-        ].sum().reset_index(), 
-
-        names="producto",
-        values="cantidad", 
-
-        hole=0.4, 
-
-        template="plotly_dark", 
-
-        color_discrete_sequence=
-        px.colors.qualitative.Vivid
-        ) 
-
-        st.plotly_chart(
-        pie,
-        use_container_width=True
-        ) 
-
-        ventas_fecha = ven_dash.groupby(
-        "fecha"
-        )["ganancia"].sum().reset_index() 
-
-        linea = px.line(
-        ventas_fecha,
-        x="fecha",
-        y="ganancia",
-        markers=True,
-        template="plotly_dark"
-        ) 
-
-        st.plotly_chart(
-        linea,
-        use_container_width=True
-        ) 
-
-        top = ven_dash.groupby(
-        "producto"
-        )["cantidad"].sum().reset_index() 
-
-        top = top.sort_values(
-        by="cantidad",
-        ascending=False
-        ) 
-
-        st.subheader(
-        "🏆 Top Productos"
-        ) 
-
-        st.dataframe(
-        top,
-        use_container_width=True
-        ) 
-            
 # =========================================================
 # EXPORTAR + IMPORTAR + LIMPIAR ERP
 # =========================================================
@@ -1447,140 +1221,60 @@ with tab7:
     output = BytesIO()
 
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-
         inv.to_excel(writer, index=False, sheet_name="Inventario")
         ven.to_excel(writer, index=False, sheet_name="Ventas")
         gas.to_excel(writer, index=False, sheet_name="Gastos")
 
-    st.download_button(
-        "📥 Descargar ERP",
-        output.getvalue(),
-        "tulip_erp.xlsx"
-    )
+    st.download_button("📥 Descargar ERP", output.getvalue(), "tulip_erp.xlsx")
 
     st.divider()
 
-    # =====================================================
-    # IMPORTAR ERP ROBUSTO (NO SE ROMPE SI FALTAN DATOS)
-    # =====================================================
-
     st.subheader("📥 Importar ERP desde Excel")
 
-    file = st.file_uploader(
-        "Subir archivo Excel",
-        type=["xlsx"]
-    )
+    file_import = st.file_uploader("Subir archivo Excel", type=["xlsx"], key="import_tab7")
 
-    if file:
-
+    if file_import:
         try:
-            xls = pd.ExcelFile(file)
+            xls = pd.ExcelFile(file_import)
 
-            # =================================================
-            # INVENTARIO
-            # =================================================
             if "Inventario" in xls.sheet_names:
-
                 df_inv = pd.read_excel(xls, "Inventario")
                 df_inv.columns = [c.lower() for c in df_inv.columns]
-
                 cursor.execute("DELETE FROM inventario")
-
                 for _, r in df_inv.iterrows():
-
-                    producto = str(r.get("producto", "")).title()
-                    categoria = str(r.get("categoria", ""))
-
-                    stock = int(r.get("stock", 0) or 0)
-                    costo = float(r.get("costo", 0) or 0)
-                    venta = float(r.get("venta", 0) or 0)
-
-                    if producto.strip() == "":
-                        continue
-
-                    cursor.execute("""
-                    INSERT INTO inventario
-                    VALUES(NULL,?,?,?,?,?)
-                    """, (
-                        producto,
-                        categoria,
-                        stock,
-                        costo,
-                        venta
+                    cursor.execute("INSERT INTO inventario VALUES(NULL,?,?,?,?,?,?,?)", (
+                        str(r.get("producto", "")).title(),
+                        str(r.get("talla", "")).upper(),
+                        str(r.get("color", "")).title(),
+                        str(r.get("categoria", "")),
+                        int(r.get("stock", 0)), float(r.get("costo", 0)), float(r.get("venta", 0))
                     ))
 
-            # =================================================
-            # VENTAS
-            # =================================================
             if "Ventas" in xls.sheet_names:
-
                 df_ven = pd.read_excel(xls, "Ventas")
                 df_ven.columns = [c.lower() for c in df_ven.columns]
-
                 cursor.execute("DELETE FROM ventas")
-
                 for _, r in df_ven.iterrows():
-
-                    cursor.execute("""
-                    INSERT INTO ventas
-                    VALUES(NULL,?,?,?,?,?,?)
-                    """, (
-                        str(r.get("fecha", "")),
-                        str(r.get("producto", "")),
-                        int(r.get("cantidad", 0) or 0),
-                        float(r.get("costo_ref", 0) or 0),
-                        float(r.get("venta_ref", 0) or 0),
-                        float(r.get("ganancia", 0) or 0)
-                    ))
-
-            # =================================================
-            # GASTOS
-            # =================================================
-            if "Gastos" in xls.sheet_names:
-
-                df_gas = pd.read_excel(xls, "Gastos")
-                df_gas.columns = [c.lower() for c in df_gas.columns]
-
-                cursor.execute("DELETE FROM gastos")
-
-                for _, r in df_gas.iterrows():
-
-                    cursor.execute("""
-                    INSERT INTO gastos
-                    VALUES(NULL,?,?,?)
-                    """, (
-                        str(r.get("fecha", "")),
-                        str(r.get("concepto", "")),
-                        float(r.get("monto", 0) or 0)
+                    cursor.execute("INSERT INTO ventas VALUES(NULL,?,?,?,?,?,?,?,?)", (
+                        str(r.get("fecha", "")), str(r.get("producto", "")),
+                        str(r.get("talla", "")), str(r.get("color", "")),
+                        int(r.get("cantidad", 0)), float(r.get("costo_ref", 0)),
+                        float(r.get("venta_ref", 0)), float(r.get("ganancia", 0))
                     ))
 
             conn.commit()
-
             st.success("📦 Backup importado correctamente")
             st.rerun()
-
         except Exception as e:
             st.error(f"Error al importar: {e}")
 
     st.divider()
-
-    # =====================================================
-    # LIMPIAR ERP
-    # =====================================================
-
     st.subheader("🧹 Limpiar ERP")
-
-    st.warning("⚠ Esto eliminará TODO el sistema")
-
-    confirmar = st.checkbox("Confirmo limpiar todo")
-
+    confirmar_limpiar = st.checkbox("Confirmo limpiar todo")
     if st.button("🧨 Limpiar ERP"):
-
-        if confirmar:
-
+        if confirmar_limpiar:
             limpiar_erp()
             st.success("ERP limpiado correctamente")
             st.rerun()
-
         else:
             st.error("Debes confirmar primero")

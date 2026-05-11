@@ -167,7 +167,7 @@ cursor = conn.cursor()
 # TABLAS
 # ========================================================= 
 
-cursor.execute("DROP TABLE IF EXISTS inventario")
+cursor.execute("DROP TABLE IF EXISTS ventas")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(
@@ -1567,17 +1567,25 @@ with tab7:
                 for _, r in df_ven.iterrows():
 
                     cursor.execute("""
-                    INSERT INTO ventas
-                    VALUES(NULL,?,?,?,?,?,?)
+                    INSERT INTO ventas(
+                    fecha,
+                    codigo,
+                    producto,
+                    cantidad,
+                    costo_ref,
+                    venta_ref,
+                    ganancia
+                    )
+                    VALUES(?,?,?,?,?,?,?)
                     """, (
-                        str(r.get("fecha", "")),
-                        str(r.get("producto", "")),
-                        int(r.get("cantidad", 0) or 0),
-                        float(r.get("costo_ref", 0) or 0),
-                        float(r.get("venta_ref", 0) or 0),
-                        float(r.get("ganancia", 0) or 0)
+                        str(r.get("fecha","")),
+                        str(r.get("codigo","")),
+                        str(r.get("producto","")),
+                        int(r.get("cantidad",0) or 0),
+                        float(r.get("costo_ref",0) or 0),
+                        float(r.get("venta_ref",0) or 0),
+                        float(r.get("ganancia",0) or 0)
                     ))
-
             # =================================================
             # GASTOS
             # =================================================

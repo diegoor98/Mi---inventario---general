@@ -167,7 +167,6 @@ cursor = conn.cursor()
 # TABLAS
 # ========================================================= 
 
-cursor.execute("DROP TABLE IF EXISTS ventas")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS inventario(

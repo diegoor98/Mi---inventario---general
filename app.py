@@ -366,11 +366,10 @@ def guardar_producto(
     venta
 ):
 
-    codigo = f"{producto[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{talla[:3].upper()}"
-
+    codigo = codigo_preview
     cursor.execute(
-        "SELECT * FROM inventario WHERE producto=?",
-        (producto,)
+         "SELECT * FROM inventario WHERE codigo=?",
+         (codigo,)
     )
 
     existe = cursor.fetchone()
@@ -713,27 +712,129 @@ with tab1:
 
         if modo == "Existente":
 
-             if not inv.empty:
+            if not inv.empty:
 
-                 producto_final = st.selectbox(
-                      "Selecciona producto existente",
-                      inv["producto"]
-                 )
+                tipo_existente = st.radio(
+                    "Modo existente",
+                    ["Seleccionar código", "Seleccionar producto"],
+                    horizontal=True
+                )
 
-                 fila = inv[
-                     inv["producto"] == producto_final
-                 ].iloc[0]
+                # =================================================
+                # OPCION 1 → CODIGO
+                # =================================================
 
-                 categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
-                 talla = str(fila["talla"]) if pd.notna(fila["talla"]) else ""
-                 color = str(fila["color"]) if pd.notna(fila["color"]) else ""
-                 codigo_preview = str(fila["codigo"]) if pd.notna(fila["codigo"]) else ""
+                if tipo_existente == "Seleccionar código":
 
-             else:
+                    # quitar vacíos/nan
+                    codigos_validos = inv[
+                        inv["codigo"].notna()
+                    ]
 
-                 st.warning("No hay productos en inventario")
-                 producto_final = ""
-                
+                    codigos_validos = codigos_validos[
+                        codigos_validos["codigo"] != ""
+                    ]
+
+                    if not codigos_validos.empty:
+
+                        codigo_sel = st.selectbox(
+                            "Código",
+                            codigos_validos["codigo"].unique()
+                        )
+
+                        fila = codigos_validos[
+                            codigos_validos["codigo"] == codigo_sel
+                        ].iloc[0]
+
+                        producto_final = str(fila["producto"])
+                        categoria = str(fila["categoria"])
+                        talla = str(fila["talla"])
+                        color = str(fila["color"])
+                        codigo_preview = str(fila["codigo"])
+
+                        st.text_input(
+                            "Producto",
+                            value=producto_final,
+                            disabled=True
+                        )
+
+                        st.text_input(
+                            "Categoria",
+                            value=categoria,
+                            disabled=True
+                        )
+
+                        st.text_input(
+                            "Talla",
+                            value=talla,
+                            disabled=True
+                        )
+
+                        st.text_input(
+                            "Color",
+                            value=color,
+                            disabled=True
+                        )
+
+                        st.success(f"Código: {codigo_preview}")
+
+                    else:
+
+                        st.warning("No hay códigos registrados")
+
+                        producto_final = ""
+                        categoria = ""
+                        talla = ""
+                        color = ""
+                        codigo_preview = ""
+
+                # =================================================
+                # OPCION 2 → PRODUCTO ANTIGUO
+                # =================================================
+
+                else:
+
+                    producto_final = st.selectbox(
+                        "Producto",
+                        inv["producto"].unique()
+                    )
+
+                    fila = inv[
+                        inv["producto"] == producto_final
+                    ].iloc[0]
+
+                    categoria_base = str(
+                        fila["categoria"]
+                    ) if pd.notna(fila["categoria"]) else ""
+
+                    categoria = st.text_input(
+                        "Categoria",
+                        value="" if categoria_base == "nan" else categoria_base
+                    )
+
+                    talla = st.text_input("Talla")
+
+                    color = st.text_input("Color")
+
+                    # evitar nan nan nan
+                    p = producto_final[:3].upper() if producto_final else "XXX"
+                    c = categoria[:3].upper() if categoria else "XXX"
+                    co = color[:3].upper() if color else "XXX"
+                    t = talla[:3].upper() if talla else "XXX"
+
+                    codigo_preview = f"{p}-{c}-{co}-{t}"
+
+                    st.info(f"Código generado: {codigo_preview}")
+
+            else:
+
+                st.warning("No hay productos")
+
+                producto_final = ""
+                categoria = ""
+                talla = ""
+                color = ""
+                codigo_preview = ""
         # =====================================================
         # NUEVO
         # =====================================================

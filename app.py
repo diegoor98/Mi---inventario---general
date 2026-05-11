@@ -356,7 +356,7 @@ def cargar():
 # ========================================================= 
 
 def guardar_producto(
-codigo,
+codigo_preview,
 producto,
 categoria,
 talla,
@@ -366,6 +366,8 @@ costo,
 venta
 ):
 
+codigo = f"{producto[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{talla[:3].upper()}"
+   
     cursor.execute(
     "SELECT * FROM inventario WHERE producto=?",
     (producto,)
@@ -757,7 +759,9 @@ with tab1:
 
             color = st.text_input("Color")
 
-            codigo = st.text_input("codigo")
+            codigo_preview = f"{producto_final[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{talla[:3].upper()}"
+
+st.info(f"Código generado: {codigo_preview}")
             
 
         # =====================================================
@@ -1109,6 +1113,12 @@ with tab4:
         )
 
         data = inv.copy()
+        data["codigo_completo"] = (
+        data["producto"].astype(str) + " | " +
+        data["color"].astype(str) + " | " +
+        data["categoria"].astype(str) + " | " +
+        data["talla"].astype(str)
+        )
 
         if cat_sel != "Todas":
             data = data[data["categoria"] == cat_sel]
@@ -1120,11 +1130,20 @@ with tab4:
         st.metric("📦 Stock total", int(data["stock"].sum()))
         st.metric("💰 Valor inventario", f"S/ {data['valor_stock'].sum():,.2f}")
 
-        st.divider()
-
         st.dataframe(
-            data,
-            use_container_width=True
+        data[[
+        "codigo",
+        "codigo_completo",
+        "producto",
+        "categoria",
+        "talla",
+        "color",
+        "stock",
+        "costo",
+        "venta",
+        "valor_stock"
+        ]],
+        use_container_width=True
         )
         
 # =========================================================

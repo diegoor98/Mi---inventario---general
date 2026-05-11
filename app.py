@@ -939,14 +939,14 @@ with tab2:
                   codigo_v,
                   producto_v,
                   cantidad
-              )
+               )
 
-                if ok: 
+               if ok: 
 
                     st.success(msg)
                     st.rerun() 
 
-                else: 
+               else: 
 
                     st.error(msg) 
 

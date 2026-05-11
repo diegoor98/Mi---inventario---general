@@ -703,6 +703,9 @@ with tab1:
 
         producto_final = ""
         categoria0 = ""
+        codigo_preview = ""
+        talla = ""
+        color = ""
 
         # =====================================================
         # EXISTENTE
@@ -710,24 +713,27 @@ with tab1:
 
         if modo == "Existente":
 
-            if not inv.empty:
+             if not inv.empty:
 
-                producto_final = st.selectbox(
-                    "Selecciona producto existente",
-                    inv["producto"]
-                )
+                 producto_final = st.selectbox(
+                      "Selecciona producto existente",
+                      inv["producto"]
+                 )
 
-                fila = inv[
-                    inv["producto"] == producto_final
-                ].iloc[0]
+                 fila = inv[
+                     inv["producto"] == producto_final
+                 ].iloc[0]
 
-                categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
+                 categoria0 = str(fila["categoria"]) if pd.notna(fila["categoria"]) else ""
+                 talla = str(fila["talla"]) if pd.notna(fila["talla"]) else ""
+                 color = str(fila["color"]) if pd.notna(fila["color"]) else ""
+                 codigo_preview = str(fila["codigo"]) if pd.notna(fila["codigo"]) else ""
 
-            else:
+             else:
 
-                st.warning("No hay productos en inventario")
-                producto_final = ""
-
+                 st.warning("No hay productos en inventario")
+                 producto_final = ""
+                
         # =====================================================
         # NUEVO
         # =====================================================

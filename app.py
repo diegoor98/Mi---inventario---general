@@ -761,7 +761,7 @@ with tab1:
 
             codigo_preview = f"{producto_final[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{talla[:3].upper()}"
 
-st.info(f"Código generado: {codigo_preview}")
+            st.info(f"Código generado: {codigo_preview}")
             
 
         # =====================================================
@@ -799,7 +799,7 @@ st.info(f"Código generado: {codigo_preview}")
         if guardar:
 
             guardar_producto(
-              codigo,
+              codigo_preview,
               producto_final.title(),
               categoria,
               talla,
@@ -930,16 +930,16 @@ with tab2:
 
             if vender:
 
-    codigo_v = inv[
-        inv["producto"] == producto_v
-    ]["codigo"].values[0]
+               codigo_v = inv[
+                  inv["producto"] == producto_v
+               ]["codigo"].values[0]
 
-    ok, msg = registrar_venta(
-        str(fecha),
-        codigo_v,
-        producto_v,
-        cantidad
-    )
+               ok, msg = registrar_venta(
+                  str(fecha),
+                  codigo_v,
+                  producto_v,
+                  cantidad
+              )
 
                 if ok: 
 

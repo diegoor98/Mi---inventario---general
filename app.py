@@ -356,28 +356,28 @@ def cargar():
 # ========================================================= 
 
 def guardar_producto(
-codigo_preview,
-producto,
-categoria,
-talla,
-color,
-stock,
-costo,
-venta
+    codigo_preview,
+    producto,
+    categoria,
+    talla,
+    color,
+    stock,
+    costo,
+    venta
 ):
 
-codigo = f"{producto[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{talla[:3].upper()}"
-   
+    codigo = f"{producto[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{talla[:3].upper()}"
+
     cursor.execute(
-    "SELECT * FROM inventario WHERE producto=?",
-    (producto,)
-    ) 
+        "SELECT * FROM inventario WHERE producto=?",
+        (producto,)
+    )
 
-    existe = cursor.fetchone() 
+    existe = cursor.fetchone()
 
-    if existe: 
+    if existe:
 
-        nuevo_stock = existe[6] + stock 
+        nuevo_stock = existe[6] + stock
 
         cursor.execute("""
         UPDATE inventario
@@ -390,31 +390,31 @@ codigo = f"{producto[:3].upper()}-{categoria[:3].upper()}-{color[:3].upper()}-{t
         venta=?
         WHERE producto=?
         """,(
-         codigo,
-        categoria,
-        talla,
-        color,
-        nuevo_stock,
-        costo,
-        venta,
-        producto
-        )) 
+            codigo,
+            categoria,
+            talla,
+            color,
+            nuevo_stock,
+            costo,
+            venta,
+            producto
+        ))
 
-    else: 
+    else:
 
         cursor.execute("""
         INSERT INTO inventario
         VALUES(NULL,?,?,?,?,?,?,?,?)
         """,(
-        codigo,
-        producto,
-        categoria,
-        talla,
-        color,
-        stock,
-        costo,
-        venta
-)) 
+            codigo,
+            producto,
+            categoria,
+            talla,
+            color,
+            stock,
+            costo,
+            venta
+        ))
 
     conn.commit() 
 
@@ -485,7 +485,7 @@ monto
 
     cursor.execute("""
     INSERT INTO gastos
-    VALUES(NULL,?,?,?,?)
+    VALUES(NULL,?,?,?)
     """,(
     fecha,
     concepto,
@@ -928,13 +928,18 @@ with tab2:
             "Vender"
             ) 
 
-            if vender: 
+            if vender:
 
-                ok, msg = registrar_venta(
-                str(fecha),
-                producto_v,
-                cantidad
-                ) 
+    codigo_v = inv[
+        inv["producto"] == producto_v
+    ]["codigo"].values[0]
+
+    ok, msg = registrar_venta(
+        str(fecha),
+        codigo_v,
+        producto_v,
+        cantidad
+    )
 
                 if ok: 
 
